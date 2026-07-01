@@ -1,0 +1,4 @@
+<launch>
+  <node pkg="g1_lower" exec="loco_client_test" name="control" />
+  <node pkg="joy" exec="game_controller_node" name="controller" />
+</launch>

@@ -2,7 +2,6 @@
 install/
 log/
 build/
-bag_files/
 *.pcd
 __pycache__/
 *.pyc
