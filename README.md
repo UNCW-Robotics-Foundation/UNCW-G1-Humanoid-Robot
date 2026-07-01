@@ -34,3 +34,41 @@ sudo apt install libeigen3-dev
 sudo apt install libpcl-dev
 
 ```
+## Build
+```
+source ~/unitree_ros2/setup.sh
+cd ~/UNCW-G1-Robot
+colcon build
+source install/local_setup.bash
+```
+
+Make sure to soure the unitree package before building since this package uses their message files.
+The generated build, install, and log folders are part of the gitignore. I believe you will need to source the package everytime when using a new terminal.
+The rviz simulator will not work if the unitree package is sourced, and the robot is not connected or turned off, but it will work if the robot is on.
+
+### Nav2 Simulator Build
+```
+source /opt/ros/humble/setup.bash
+colcon build
+source install/setup.bash
+
+```
+
+## Run Commands 
+
+### Nav2 Sim 
+```
+source /opt/ros/humble/setup.bash
+source install/setup.bash
+ros2 launch g1_nav2_sim_bringup sim_bringup_launch.py
+
+```
+
+To send 2D Nav Goals, switch the fixed frame topic from 'odom'
+to 'map' and recheck global costmap. Also wait about 15 seconds to send goal as SLAM needs time to build initial map.  
+NOTE: Costmaps and livox drivers use different timestamps, system may time out and cause maps to be out of sync or not receive properly in rviz.  
+Fixed frames for viewing in rviz: 
+- Global Costmap: map
+- Local Costmap: odom
+- Lidar: camera_init
+
