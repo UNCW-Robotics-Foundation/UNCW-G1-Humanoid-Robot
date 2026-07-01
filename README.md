@@ -2,7 +2,7 @@
 Base scripts and foundational programs for uncw's G1 Humanoid Robot. Utilizes ROS2 as framework. 
 
 ## Initial Setup
-Install Ros2 Humble /n
+Install Ros2 Humble \n
 Follow all of the setup instructions for [this repository](https://github.com/unitreerobotics/unitree_ros2).
 As long as the building steps in the other repository were successfull, and after being able to successfully connect to the robot, confirmed by seing the new topics in Ros2, this package should build correctly.
 
