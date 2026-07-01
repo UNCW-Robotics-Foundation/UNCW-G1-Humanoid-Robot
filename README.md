@@ -9,7 +9,7 @@ Linux Ubuntu 22.04
 - Follow all of the setup instructions for [this repository](https://github.com/unitreerobotics/unitree_ros2).
 - As long as the building steps in the other repository were successfull, and after being able to successfully connect to the robot, confirmed by seing the new topics in Ros2, this package should build correctly.
 
-Sorce repos for Nav2 Simulator: 
+### Sorce repos for Nav2 Simulator: 
 - [Livox-SDK2](https://github.com/Livox-SDK/Livox-SDK2)
 - [livox_ros_driver2](https://github.com/Livox-SDK/livox_ros_driver2)
 - [FAST-LIO (ROS2 branch)](https://github.com/hku-mars/FAST_LIO) → branch ROS2
