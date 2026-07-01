@@ -68,9 +68,9 @@ Keyboard teleop commands also work for robot model
 ros2 run teleop_twist_keyboard teleop_twist_keyboard
 ```
 
-To send 2D Nav Goals, switch the fixed frame topic from 'odom'
-to 'map' and recheck global costmap. Also wait about 15 seconds to send goal as SLAM needs time to build initial map.  
-NOTE: Costmaps and livox drivers use different timestamps, system may time out and cause maps to be out of sync or not receive properly in rviz.  
+To send 2D Nav Goals, switch the fixed frame topic from 'odom'to 'map' and recheck global costmap, the goal pose is published in the current fixed
+frame, and Nav2 plans in the map frame. Also wait about 15 seconds to send goal as SLAM needs time to build initial map.  
+NOTE: Costmaps and gazebo sim use different timestamps (system and sim time respectively), system may time out and cause maps to be out of sync or not receive properly in rviz.  
 Fixed frames for viewing in rviz: 
 - Global Costmap: map
 - Local Costmap: odom
