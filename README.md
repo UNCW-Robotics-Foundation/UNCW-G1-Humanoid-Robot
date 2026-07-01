@@ -20,7 +20,7 @@ sudo apt install ros-humble-joint-state-publisher
 sudo apt install ros-humble-joint-state-publisher-gui
 
 ```
-- Nav2 Simulator
+### Nav2 Simulator
 ```
 sudo apt install ros-humble-nav2-bringup 
 sudo apt install ros-humble-slam-toolbox 
