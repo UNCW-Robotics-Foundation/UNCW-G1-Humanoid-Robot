@@ -80,4 +80,8 @@ Robot model will "glide" along the floor, this is intentional as bipedal simulat
 Failed to find math for field errors from fastlio mapping will show in run terminal for sim, these are harmless warnings, havent figured out a way to disable them unfortunately.   
 In cafe.world, tables and other thin fixtures are viewed as "dynamic obstacles", meaning they'll only be seen by the local costmap. Plan will reajust when the robot approaches the table
 
+## TODO
 
+### Nav2 Stack: 
+- SLAM map saving and loading in sim 
+- Real Robot implementation 
