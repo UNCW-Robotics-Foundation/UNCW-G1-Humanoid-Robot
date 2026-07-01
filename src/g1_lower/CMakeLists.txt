@@ -49,6 +49,9 @@ ament_target_dependencies(g1_arms_test ${DEPENDENCY_LIST})
 add_executable(g1_arms_txt src/g1_arms_txt.cpp)
 ament_target_dependencies(g1_arms_txt ${DEPENDENCY_LIST})
 
+add_executable(g1_gesture_control src/g1_gesture_control.cpp)
+ament_target_dependencies(g1_gesture_control ${DEPENDENCY_LIST})
+
 add_executable(g1_ankle_swing_example src/g1_ankle_swing_example.cpp src/common/motor_crc_hg.cpp)
 ament_target_dependencies(g1_ankle_swing_example ${DEPENDENCY_LIST})
 
@@ -84,6 +87,7 @@ ament_target_dependencies(wireless_controller_test ${DEPENDENCY_LIST})
 
 
 install(TARGETS g1_ankle_swing_example)
+install(TARGETS g1_gesture_control)
 install(TARGETS g1_lowcmd_test)
 install(TARGETS g1_lowcmd_listener)
 install(TARGETS lowstate_jointstate_bridge)
