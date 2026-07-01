@@ -64,9 +64,9 @@ ros2 launch g1_nav2_sim_bringup sim_bringup_launch.py
 
 ```
 Keyboard teleop commands also work for robot model
-'''
+```
 ros2 run teleop_twist_keyboard teleop_twist_keyboard
-'''
+```
 
 To send 2D Nav Goals, switch the fixed frame topic from 'odom'
 to 'map' and recheck global costmap. Also wait about 15 seconds to send goal as SLAM needs time to build initial map.  
