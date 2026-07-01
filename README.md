@@ -1,5 +1,7 @@
 # UNCW-G1-Humanoid-Robot
-Base scripts and foundational programs for uncw's G1 Humanoid Robot. Utilizes ROS2 as framework. 
+Base scripts and foundational programs for uncw's G1 Humanoid Robot. Utilizes ROS2 as framework.\
+
+OS: Linux Ubuntu 22.04
 
 ## Initial Setup
 - Install Ros2 Humble
