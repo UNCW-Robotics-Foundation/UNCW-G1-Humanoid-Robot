@@ -1,0 +1,12 @@
+
+#config file for passing parameters to slam toolbox node 
+
+slam_toolbox:
+    ros__parameters:
+      base_frame: base_link
+      odom_frame: odom
+      map_frame: map
+      scan_topic: /scan
+      mode: mapping
+      use_sim_time: false
+
