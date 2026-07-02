@@ -81,7 +81,7 @@ class WirelessControllerSuber : public rclcpp::Node {
       req.parameter = js.dump();
       pub_->publish(req);
       once_flag = false;
-    } else if ((data->keys == 320) && (once_flag)) {
+    } else if ((data->keys == 2112) && (once_flag)) {
       once_flag = false;
       if (playing_flag) {
         PlayStop("pump");

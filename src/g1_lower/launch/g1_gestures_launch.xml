@@ -1,0 +1,4 @@
+<launch>
+  <node pkg="g1_lower" exec="g1_gesture_control" name="gestures" />
+  <node pkg="g1_lower" exec="wireless_controller_test" name="gestures" />
+</launch>
