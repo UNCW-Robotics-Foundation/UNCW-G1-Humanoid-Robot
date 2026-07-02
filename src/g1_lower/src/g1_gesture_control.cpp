@@ -14,6 +14,22 @@
 
 #include "g1/g1.hpp"
 
+/*
+
+This program sends commands to the upper arm control of the G1 robot. The commands are read from
+text files that are located in a gesture folder. There are is a script for creating these txt files.
+They come from rosbags of the lowstate topic. The robot will enter a "busy" state when performing
+a gesture, and if another button for a custom gesture is pressed during that state, the robot
+will go back to its initial state.
+Should work with either the provided controller or an xbox one depending on which topic is subscribed.
+Can work with the simulator if it publishes to low_cmd. DO NOT run with real robot when it is publishing
+to low_cmd.
+
+Subscribers - lowstate; wirelesscontroller or joy
+Publishers - arm_sdk or low_cmd
+
+*/
+
 using namespace std::chrono_literals;
 using LowCmd = unitree_hg::msg::LowCmd;
 using LowState = unitree_hg::msg::LowState;
@@ -46,9 +62,8 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
 
  public:
   CustomGestureController() : Node("custom_gesture_controller") {
-    // ROS2接口初始化
-    //pub_ = this->create_publisher<LowCmd>("/lowcmd", 10);
-    pub_ = this->create_publisher<LowCmd>("/arm_sdk", 10);
+    //pub_ = this->create_publisher<LowCmd>("/lowcmd", 10); // uncomment for Mujoco
+    pub_ = this->create_publisher<LowCmd>("/arm_sdk", 10);  // uncomment for real robot
     sub_ = this->create_subscription<LowState>(
         "/lowstate", 10,
         [this](const LowState::SharedPtr msg) { StateCallback(msg); });
@@ -56,15 +71,15 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
     //             "joy", 10,
     //             [this](const sensor_msgs::msg::Joy::SharedPtr data) {
     //             JoyHandler(data);
-    //             });
+    //             }); // uncomment for Xbox
     suber_ = this->create_subscription<unitree_go::msg::WirelessController>(
         "/wirelesscontroller", 10,
         [this](const unitree_go::msg::WirelessController::SharedPtr data) {
-          wireless_callback(data);
-        });
+          WirelessCallback(data);
+        });             // uncomment for provided controller
 
+    // A seperate thread is created for managing the control loop
     thread_txt_ = std::thread([this]() { ReadFileLoop(); });
-    //txt_read_ = this->create_wall_timer(std::chrono::milliseconds(2), [this] { ReadFileLoop(); });
     sleep_time_ =
         std::chrono::milliseconds(static_cast<int>(control_dt_ * 1000));
     
@@ -73,18 +88,16 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
  private:
   rclcpp::Publisher<LowCmd>::SharedPtr pub_;
   rclcpp::Subscription<LowState>::SharedPtr sub_;
-  //rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr joy_suber_;
-  rclcpp::Subscription<unitree_go::msg::WirelessController>::SharedPtr suber_;
+  //rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr joy_suber_;          // uncomment for Xbox
+  rclcpp::Subscription<unitree_go::msg::WirelessController>::SharedPtr suber_;  // uncomment for provided controller
   std::thread thread_txt_;
-  rclcpp::TimerBase::SharedPtr txt_read_;
   std::string gesture_data;
 
   LowState last_state_;
   LowState init_state_;
-  std::mutex state_mutex_;
 
   int count = 0;
-  std::string file_name = "gestures/wave.txt";
+  std::string file_name; 
   bool state_received_ = false;
   bool initial_move_ = false;
   bool btn_flag = false;
@@ -97,19 +110,26 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
   float move_duration_ = 3.0F;
   std::chrono::milliseconds sleep_time_{};
 
-  std::array<float, NUM_ARM_JOINTS> current_jpos_{};
-  std::array<float, NUM_ARM_JOINTS> init_pos_{};
+  std::array<float, NUM_ARM_JOINTS> current_jpos_{};  // The robot's current target
+  std::array<float, NUM_ARM_JOINTS> init_pos_{};      // The robot's current pos from lowstate
 
+  /*
+  In a constant loop to cleanly handle file operations. Waits for a reading from lowstate (state_received_)
+  and for a "busy" state swap (busy_flag) before leaving loop. Once out, the robot's current pose is 
+  recorded for moving out of and back into. The file_name variable should have been updated when an
+  appropriate button was pressed. The file reading is in a loop that will exit early if one of the 
+  preset gesture buttons is pressed again while it is busy.
+  */
   void ReadFileLoop() {
     while (true) {
-      RCLCPP_INFO(this->get_logger(), "Waiting for initial robot pose and button input...");
+      //RCLCPP_INFO(this->get_logger(), "Waiting for initial robot pose and button input...");
       while (!((state_received_) && (busy_flag))){
         std::this_thread::sleep_for(100ms);
         
       } 
       auto start_pos = init_pos_;
-      RCLCPP_INFO(this->get_logger(), "Initial pose recorded...");
-      RCLCPP_INFO(this->get_logger(), "Performing gesture...");
+      //RCLCPP_INFO(this->get_logger(), "Initial pose recorded...");
+      //RCLCPP_INFO(this->get_logger(), "Performing gesture...");
       unitree_hg::msg::LowState low_state_data;
       int i = 0;
 
@@ -117,36 +137,44 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
       while (getline (GestureTxtFile, gesture_data)) {
         low_state_data.motor_state.at(i).q = std::stof(gesture_data);
         if (e_stop) {
-          RCLCPP_INFO(this->get_logger(), "Stopping gesture early...");
-          move_duration_ = 5.0F;
+          //RCLCPP_INFO(this->get_logger(), "Stopping gesture early...");
+          move_duration_ = 5.0F;  // when the robot's arms are significantly further than the starting position, a higher duration smoothens its return
           break;
         }
 
-        if (!(i + 1 < 29)) {
+        if (!(i + 1 < 29)) {  // each line is a joint, so every 29 is a set
           Control(low_state_data);
           i = 0;
-          std::this_thread::sleep_for(1ms);
+          std::this_thread::sleep_for(1ms); // if this sleep was not here, this thread would make the robot move dangerously fast
         } else{
           i++;
         }
         
       }
+
+      // after file is read, the robot gets moved back to initial position
       GestureTxtFile.close();
-      RCLCPP_INFO(this->get_logger(), "Moving to init");
+      //RCLCPP_INFO(this->get_logger(), "Moving to init");
       MoveTo(start_pos, current_jpos_, move_duration_, true);
-      RCLCPP_INFO(this->get_logger(), "Gesture complete.");
+      //RCLCPP_INFO(this->get_logger(), "Gesture complete.");
       LowCmd cmd;
       cmd.motor_cmd[static_cast<int>(NOT_USED_JOINT)].q = 0.0F;
       pub_->publish(cmd);
-      RCLCPP_INFO(this->get_logger(), "Control stopped.");
+      //RCLCPP_INFO(this->get_logger(), "Control stopped.");
+
+      // flags get reset
       busy_flag = false;
       e_stop = false;
       move_duration_ = 3.0F;
     }
   }
 
+  /*
+  The main control Function. Sets all the appropriate joint positions and gains for the robot's 
+  arms and waist. If the gesture just started, it will call another method that handles moving from 
+  one position to another.
+  */
   void Control(const LowState joint_data) {
-    //std::lock_guard<std::mutex> lock(state_mutex_);
     last_state_ = joint_data;
 
     for (size_t i = 0; i < arm_joints_.size(); ++i) {
@@ -175,29 +203,29 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
     if (initial_move_) {
       pub_->publish(cmd);
     } else {
-      RCLCPP_INFO(this->get_logger(), "Moving to init");
+      //RCLCPP_INFO(this->get_logger(), "Moving to init");
       MoveTo(current_jpos_, init_pos_, move_duration_, true);
-      RCLCPP_INFO(this->get_logger(), "Completed init");
+      //RCLCPP_INFO(this->get_logger(), "Completed init");
       initial_move_ = true;
     }
   }
 
+  // Function for lowstate subscriber
   void StateCallback(const LowState::SharedPtr msg) {
-    //std::lock_guard<std::mutex> lock(state_mutex_);
-    // if (state_received_) {
-    //   return;
-    // }
     init_state_ = *msg;
 
     for (size_t i = 0; i < arm_joints_.size(); ++i) {
       init_pos_[i] =
           init_state_.motor_state[static_cast<int>(arm_joints_[i])].q;
-      //RCLCPP_INFO(this->get_logger(), "Init joint %d = %f", i, init_pos_[i]);
     }
 
     state_received_ = true;
   }
 
+  /*
+  Function for moving from current to target position. Intended for moving from initial robot
+  running mode position to start of gesture position and back.
+  */
   void MoveTo(const std::array<float, NUM_ARM_JOINTS>& target,
               std::array<float, NUM_ARM_JOINTS>& current, float duration,
               bool smooth) {
@@ -217,15 +245,16 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
           float diff = target[j] - current[j];
           current[j] += std::clamp(diff, -max_delta, max_delta);
         }
-        //dbg_ += std::to_string(current[j]) + "; ";
-        //RCLCPP_INFO(this->get_logger(), "current target: %f", current[j]);
       }
-      //RCLCPP_INFO(this->get_logger(), "Current targets: %f; %f; %f", current[0], current[1], current[2]);
+
       SendPositionCommand(current);
       std::this_thread::sleep_for(sleep_time_);
     }
   }
 
+  /*
+  Helper function for MoveTo function. Very similar to control function.
+  */
   void SendPositionCommand(const std::array<float, NUM_ARM_JOINTS>& positions) {
     LowCmd cmd;
 
@@ -248,8 +277,11 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
     pub_->publish(cmd);
   }
 
+  /*
+  Function for joy subscriber. Any modifications to button inputs and/or gestures need to be made here.
+  */
   void JoyHandler(sensor_msgs::msg::Joy::SharedPtr message) {
-
+    // Method for knowing when a butten has been released so presses don't repeat. Joy msg is different from wireless controller msg
     if (btn_flag) {
         int press_counter = 0;
         for (int i = 0; i < message->buttons.size(); i++) {
@@ -259,95 +291,73 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
             press_counter++;
         }
         if (press_counter == message->buttons.size()) {
-            RCLCPP_INFO(this->get_logger(), "CONTROLLER HANDLER; Button released...");
+            //RCLCPP_INFO(this->get_logger(), "CONTROLLER HANDLER; Button released...");
             btn_flag = false;
         }
     } 
+
+    // Buttons flip the btn_flag (flaps back when released), the busy_flag (flips back when gesture completes), and e_stop flag (flips back when gesture completes)
     else if (message->buttons[0] == 1) {
-      if (!(busy_flag)) {
-        RCLCPP_INFO(this->get_logger(), "CONTROLLER HANDLER; Button A pressed. Performing wave...");
-        file_name = "gestures/wave.txt";
-        btn_flag = true;
-        busy_flag = true;
-      } else {
-        RCLCPP_INFO(this->get_logger(), "Button pressed while busy");
-        e_stop = true;
-      }
+      ButtonsHelper("gestures/wave.txt");
+      btn_flag = true;
     }
     else if (message->buttons[1] == 1) {
-        if (!(busy_flag)) {
-        RCLCPP_INFO(this->get_logger(), "CONTROLLER HANDLER; Button B pressed. Performing punch...");
-        file_name = "gestures/punch.txt";
-        btn_flag = true;
-        busy_flag = true;
-      } else {
-        RCLCPP_INFO(this->get_logger(), "Button pressed while busy");
-        e_stop = true;
-      }
+      ButtonsHelper("gestures/punch.txt");
+      btn_flag = true;
     }
     else if (message->buttons[2] == 1) {
-        if (!(busy_flag)) {
-        RCLCPP_INFO(this->get_logger(), "CONTROLLER HANDLER; Button X pressed. Performing headrub...");
-        file_name = "gestures/head_rub.txt";
-        btn_flag = true;
-        busy_flag = true;
-      } else {
-        RCLCPP_INFO(this->get_logger(), "Button pressed while busy");
-        e_stop = true;
-      }
+      ButtonsHelper("gestures/head_rub.txt");
+      btn_flag = true;
     }
     else if (message->buttons[3] == 1) {
-        RCLCPP_INFO(this->get_logger(), "CONTROLLER HANDLER; Button Y pressed. Nothing configured...");
-        btn_flag = true;
+      //RCLCPP_INFO(this->get_logger(), "CONTROLLER HANDLER; Button Y pressed. Nothing configured...");
+      btn_flag = true;
     }
     else {
         //RCLCPP_INFO(this->get_logger(), "CONTROLLER HANDLER; Listening...");
     }
   }
 
-  void wireless_callback(const unitree_go::msg::WirelessController::SharedPtr& data) {
+  /*
+  Function for wireless_controller subscriber. Any modifications to button inputs and/or 
+  gestures need to be made here. I recommend using F1 + <button>. The controller sends an integer
+  value when a button is pressed. I think they are unique powers of 2, so each button press SHOULD be 
+  unique, but there are still some bugs because pressing X and A at the same time sometimes performs a
+  clap even though it is assigned to double tap A. Double check an input is free by testing in
+  robot running mode.
+  */
+  void WirelessCallback(const unitree_go::msg::WirelessController::SharedPtr& data) {
+    // Buttons flip the btn_flag (flaps back when released), the busy_flag (flips back when gesture completes), and e_stop flag (flips back when gesture completes)
     if ((data->keys == 320) && (btn_flag)) {
-      if (!(busy_flag)) {
-        RCLCPP_INFO(this->get_logger(), "CONTROLLER HANDLER; Button A pressed. Performing wave...");
-        file_name = "gestures/wave.txt";
-        btn_flag = true;
-        busy_flag = true;
-        initial_move_ = false;
-      } else {
-        RCLCPP_INFO(this->get_logger(), "Button pressed while busy");
-        e_stop = true;
-      }
+      ButtonsHelper("gestures/wave.txt");
       btn_flag = false;
     } else if ((data->keys == 576) && (btn_flag)) {
-      if (!(busy_flag)) {
-        RCLCPP_INFO(this->get_logger(), "CONTROLLER HANDLER; Button B pressed. Performing punch...");
-        file_name = "gestures/punch.txt";
-        btn_flag = true;
-        busy_flag = true;
-        initial_move_ = false;
-      } else {
-        RCLCPP_INFO(this->get_logger(), "Button pressed while busy");
-        e_stop = true;
-      }
+      ButtonsHelper("gestures/punch.txt");
       btn_flag = false;
     }else if ((data->keys == 1088) && (btn_flag)) {
-      if (!(busy_flag)) {
-        RCLCPP_INFO(this->get_logger(), "CONTROLLER HANDLER; Button X pressed. Performing headrub...");
-        file_name = "gestures/head_rub.txt";
-        btn_flag = true;
-        busy_flag = true;
-        initial_move_ = false;
-      } else {
-        RCLCPP_INFO(this->get_logger(), "Button pressed while busy");
-        e_stop = true;
-      }
+      ButtonsHelper("gestures/head_rub.txt");
       btn_flag = false;
+
+    // Method for avoiding held presses. While btn_flag is false, nothing happens.
     }else if ((data->keys == 0) && !(btn_flag)) {
       btn_flag = true;
     }
 
   }
-  
+
+  // Helper function for controllers
+  void ButtonsHelper(std::string gesture_name) {
+    if (!(busy_flag)) {
+      //RCLCPP_INFO(this->get_logger(), "CONTROLLER HANDLER; Button B pressed. Performing punch...");
+      file_name = gesture_name;
+      btn_flag = true;
+      busy_flag = true;
+      initial_move_ = false;
+    } else {
+      //RCLCPP_INFO(this->get_logger(), "Button pressed while busy");
+      e_stop = true;
+    }
+  }
 
 };
 
