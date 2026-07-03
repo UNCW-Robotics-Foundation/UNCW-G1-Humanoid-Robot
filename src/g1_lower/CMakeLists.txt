@@ -46,6 +46,9 @@ find_package(unitree_hg REQUIRED)
 add_executable(bag_test src/bag_test.cpp src/common/motor_crc_hg.cpp)
 ament_target_dependencies(bag_test ${DEPENDENCY_LIST})
 
+add_executable(csv_gesture_test src/csv_gesture_test.cpp)
+ament_target_dependencies(csv_gesture_test ${DEPENDENCY_LIST})
+
 add_executable(bag_to_txt src/bag_to_txt.cpp)
 ament_target_dependencies(bag_to_txt ${DEPENDENCY_LIST})
 
@@ -91,6 +94,7 @@ ament_target_dependencies(wireless_controller_test ${DEPENDENCY_LIST})
 
 install(TARGETS bag_test)
 install(TARGETS bag_to_txt)
+install(TARGETS csv_gesture_test)
 install(TARGETS g1_ankle_swing_example)
 install(TARGETS g1_arms_test)
 install(TARGETS g1_arms_txt)
