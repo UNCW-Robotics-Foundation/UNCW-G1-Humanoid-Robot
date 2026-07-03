@@ -25,7 +25,7 @@ class RobotToCSV : public rclcpp::Node {
         bool state_received = false;
         bool stop_flag = false;
         std::array<float, 29> g1JointPos{};
-        std::vector<std::string> storedJoints;
+        std::vector<std::array<float, 29>> storedJoints;
 
         rclcpp::Subscription<unitree_hg::msg::LowState>::SharedPtr suber_;
         rclcpp::TimerBase::SharedPtr timer1_;
@@ -38,37 +38,54 @@ class RobotToCSV : public rclcpp::Node {
         }
 
         void ControlLoop() {
+            std::string str;
+            int counter = 0;
             while (!state_received) {
             RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 1000,
                                 "Waiting for LowState...");
             std::this_thread::sleep_for(100ms);
             }
-            RCLCPP_INFO(this->get_logger(), "LowState subscribed.");
-            timer1_ = this->create_wall_timer(std::chrono::milliseconds(2),
-                                      [this] { FileWriter(); });
+            RCLCPP_INFO(this->get_logger(), "LowState subscribed. Recording starting...");
+
+            std::cout << std::endl;
+            std::cout << "Press enter to record. Type anything before hitting enter to stop: ";
+            std::getline(std::cin, str);
+            while (str == "") {
+                storedJoints.push_back(g1JointPos);
+                counter++;
+                if (counter < 10) {
+                    std::cout << counter << "  point recorded. (enter: record; anything+enter: exit): ";
+                } else {
+                    std::cout << counter << " point recorded. (enter: record; anything+enter: exit): ";
+                }
+                std::getline(std::cin, str);
+            }
+            std::cout << std::endl;
+            RCLCPP_INFO(this->get_logger(), "Recording stopped");
+            if (counter > 0) {
+                FileWriter();
+            }
+            rclcpp::shutdown();
         }
 
         void FileWriter() {
-            if (!(stop_flag)) {
-                std::string line;
-                line += std::to_string(g1JointPos[0]);
-                for (int i = 1; i < g1JointPos.size(); i++) {
-                    line += "," + std::to_string(g1JointPos[0]);
-                }
-                line += "\n";
-                storedJoints.push_back(line);
-
-            } else {
+            std::string tmp_line;
             std::ofstream CSVFile("csv_test.csv");
             RCLCPP_INFO(this->get_logger(), "Writing to csv...");
+            CSVFile << "LEFT_HIP_PITCH,LEFT_HIP_ROLL,LEFT_HIP_YAW,LEFT_KNEE,LEFT_ANKLE_PITCH,LEFT_ANKLE_ROLL,RIGHT_HIP_PITCH,RIGHT_HIP_ROLL,RIGHT_HIP_YAW,RIGHT_KNEE,RIGHT_ANKLE_PITCH,RIGHT_ANKLE_ROLL,WAIST_YAW,WAIST_ROLL,WAIST_PITCH,LEFT_SHOULDER_PITCH,LEFT_SHOULDER_ROLL,LEFT_SHOULDER_YAW,LEFT_ELBOW,LEFT_WRIST_ROLL,LEFT_WRIST_PITCH,LEFT_WRIST_YAW,RIGHT_SHOULDER_PITCH,RIGHT_SHOULDER_ROLL,RIGHT_SHOULDER_YAW,RIGHT_ELBOW,RIGHT_WRIST_ROLL,RIGHT_WRIST_PITCH,RIGHT_WRIST_YAW\n";
             for (int i = 0; i < storedJoints.size(); i++) {
-                CSVFile << storedJoints[i];
+                tmp_line = std::to_string(storedJoints[i][0]);
+                for (int j = 1; j < 29; j++) {
+                    tmp_line += "," + std::to_string(storedJoints[i][j]);
+                }
+                if (i < storedJoints.size() - 1) {
+                   tmp_line += "\n"; 
+                }
+                CSVFile << tmp_line;
             }
             CSVFile.close();
             RCLCPP_INFO(this->get_logger(), "Writing complete.");
-            rclcpp::shutdown();
-            }
-            }
+        }
 
 };
 
