@@ -103,6 +103,7 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
   bool btn_flag = false;
   bool busy_flag = false;
   bool e_stop = false;
+  bool last_move = false;
 
   float kp_{60.0F}, kd_{1.5F};
   float control_dt_{0.02F};
@@ -169,7 +170,7 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
       // after file is read, the robot gets moved back to initial position
       GestureTxtFile.close();
       //RCLCPP_INFO(this->get_logger(), "Moving to init");
-      MoveTo(start_pos, current_jpos_, move_duration_, true);
+      MoveTo(start_pos, init_pos_, move_duration_, true);
       //RCLCPP_INFO(this->get_logger(), "Gesture complete.");
       LowCmd cmd;
       cmd.motor_cmd[static_cast<int>(NOT_USED_JOINT)].q = 0.0F;
@@ -247,6 +248,8 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
     const int steps = static_cast<int>(duration / control_dt_);
     const float max_delta = max_joint_velocity_ * control_dt_;
 
+    const std::array<float, NUM_ARM_JOINTS> initial = current;
+
     for (int i = 0; i < steps; ++i) {
       std::string dbg_;
       float phase = static_cast<float>(i) / static_cast<float>(steps);
@@ -254,7 +257,8 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
       for (size_t j = 0; j < arm_joints_.size(); ++j) {
         if (smooth) {
           // smooth mode: linear interpolation
-          current[j] = current[j] * (1 - phase) + target[j] * phase;
+          //current[j] = current[j] * (1 - phase) + target[j] * phase;
+          current[j] = ((i * (target[j] - initial[j])) / steps) + initial[j];
         } else {
           // non-smooth mode: move with max velocity
           float diff = target[j] - current[j];
@@ -262,8 +266,16 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
         }
       }
 
+      if ((e_stop) && !(last_move)) {
+        last_move = true;
+        return;
+      }
+
       SendPositionCommand(current);
       std::this_thread::sleep_for(sleep_time_);
+    }
+    if (last_move) {
+      last_move = false;
     }
   }
 
