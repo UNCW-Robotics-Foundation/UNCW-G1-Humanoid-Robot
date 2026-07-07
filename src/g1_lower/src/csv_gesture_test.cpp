@@ -104,6 +104,7 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
   bool busy_flag = false;
   bool e_stop = false;
   bool last_move = false;
+  bool user_flag = false;
 
   float kp_{60.0F}, kd_{1.5F};
   float control_dt_{0.02F};
@@ -126,7 +127,6 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
       //RCLCPP_INFO(this->get_logger(), "Waiting for initial robot pose and button input...");
       while (!((state_received_) && (busy_flag))){
         std::this_thread::sleep_for(100ms);
-        
       } 
       auto start_pos = init_pos_;
       //RCLCPP_INFO(this->get_logger(), "Initial pose recorded...");
@@ -150,12 +150,13 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
 
         //low_state_data.motor_state.at(i).q = std::stof(gesture_data);
         if (e_stop) {
+          last_move = true;
           //RCLCPP_INFO(this->get_logger(), "Stopping gesture early...");
-          move_duration_ = 5.0F;  // when the robot's arms are significantly further than the starting position, a higher duration smoothens its return
+          move_duration_ = 4.0F;  // when the robot's arms are significantly further than the starting position, a higher duration smoothens its return
           break;
         }
 
-        Control(low_state_data);
+        Control(low_state_data, std::stoi(row[29]));
 
         // if (!(i + 1 < 29)) {  // each line is a joint, so every 29 is a set
         //   Control(low_state_data);
@@ -189,7 +190,7 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
   arms and waist. If the gesture just started, it will call another method that handles moving from 
   one position to another.
   */
-  void Control(const LowState joint_data) {
+  void Control(const LowState joint_data, const int data_flag) {
     last_state_ = joint_data;
 
     for (size_t i = 0; i < arm_joints_.size(); ++i) {
@@ -215,6 +216,25 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
 
     cmd.motor_cmd[static_cast<int>(NOT_USED_JOINT)].q = 1.0F;
 
+    switch (data_flag) {
+      case 0:   // regular point
+        MoveTo(current_jpos_, init_pos_, move_duration_, true);
+        break;
+      case 1:   // Continuous Recording
+        pub_->publish(cmd);
+        std::this_thread::sleep_for(1ms);
+        break;
+      case 2:   // User input required
+        MoveTo(current_jpos_, init_pos_, move_duration_, true);
+        while (!((user_flag) || (e_stop))){
+          std::this_thread::sleep_for(100ms);
+        }
+        user_flag = false;
+        break;
+      case 3:   // Looped continuous recording
+        break;
+    }
+
     // if (initial_move_) {
     //   pub_->publish(cmd);
     // } else {
@@ -223,7 +243,7 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
     //   //RCLCPP_INFO(this->get_logger(), "Completed init");
     //   initial_move_ = true;
     // }
-    MoveTo(current_jpos_, init_pos_, move_duration_, true);
+    //MoveTo(current_jpos_, init_pos_, move_duration_, true);
   }
 
   // Function for lowstate subscriber
@@ -251,7 +271,6 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
     const std::array<float, NUM_ARM_JOINTS> initial = current;
 
     for (int i = 0; i < steps; ++i) {
-      std::string dbg_;
       float phase = static_cast<float>(i) / static_cast<float>(steps);
 
       for (size_t j = 0; j < arm_joints_.size(); ++j) {
@@ -274,6 +293,7 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
       SendPositionCommand(current);
       std::this_thread::sleep_for(sleep_time_);
     }
+    // Q1 flag
     if (last_move) {
       last_move = false;
     }
@@ -338,6 +358,10 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
     }
     else if (message->buttons[3] == 1) {
       ButtonsHelper("gestures/ymca.csv");
+      btn_flag = true;
+    }
+    else if (message->buttons[10] == 1) {
+      ButtonsHelper("gestures/csv_test.csv");
       btn_flag = true;
     }
     else {

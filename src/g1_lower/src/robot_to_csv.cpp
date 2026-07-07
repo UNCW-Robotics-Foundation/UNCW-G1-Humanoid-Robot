@@ -27,6 +27,7 @@ class RobotToCSV : public rclcpp::Node {
         std::thread thread_;
         bool state_received = false;
         bool c_rec_flag = false;
+        bool first_c_rec_flag = true;
         std::array<float, 29> g1JointPos{};
         std::vector<std::array<float, 29>> storedJoints;
         std::vector<int> storedFlags;
@@ -66,6 +67,7 @@ class RobotToCSV : public rclcpp::Node {
 
                 if (str == "c") {
                     c_rec_flag = true;
+                    first_c_rec_flag = true;
                     std::cout << "Continuous recording started. Press enter to stop...";
                     std::getline(std::cin, str);
                     c_rec_flag = false;
@@ -112,7 +114,12 @@ class RobotToCSV : public rclcpp::Node {
         void ContinuousRec() {
             if (c_rec_flag) {
                 storedJoints.push_back(g1JointPos);
-                storedFlags.push_back(1);
+                if (!(first_c_rec_flag)) {
+                    storedFlags.push_back(1);
+                } else{
+                    storedFlags.push_back(0);
+                    first_c_rec_flag = false;
+                }
                 counter ++;
                 if (counter >= max) {
                     max = max * 10;
