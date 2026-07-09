@@ -105,6 +105,8 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
   bool e_stop = false;
   bool last_move = false;
   bool user_flag = false;
+  bool waiting_for_user = false;
+  bool looping_flag = false;
 
   float kp_{60.0F}, kd_{1.5F};
   float control_dt_{0.02F};
@@ -114,6 +116,7 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
 
   std::array<float, NUM_ARM_JOINTS> current_jpos_{};  // The robot's current target
   std::array<float, NUM_ARM_JOINTS> init_pos_{};      // The robot's current pos from lowstate
+  std::vector<std::array<float, NUM_ARM_JOINTS>> looped_rec;
 
   /*
   In a constant loop to cleanly handle file operations. Waits for a reading from lowstate (state_received_)
@@ -198,40 +201,89 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
           last_state_.motor_state[static_cast<int>(arm_joints_[i])].q;
     }
 
-    LowCmd cmd;
+    if (looping_flag) {
+      if (data_flag != 3) {
+        waiting_for_user = true;
+        RCLCPP_INFO(this->get_logger(), "Beginning looped recording...");
+        while (!(user_flag) && !(e_stop)) {
+          MoveTo(looped_rec[0], init_pos_, 1.0F, true);
+          for (int i = 1; i < looped_rec.size(); i++) {
+            if (e_stop || user_flag) {
+              break;
+            }
+            LowCmd cmd;
 
-    for (size_t i = 0; i < arm_joints_.size(); ++i) {
-      int idx = static_cast<int>(arm_joints_[i]);
-      cmd.motor_cmd[idx].q = current_jpos_[i];
-      cmd.motor_cmd[idx].dq = 0.0F;
-      cmd.motor_cmd[idx].tau = 0.0F;
-      if (i >= arm_joints_.size() - 3) {
-        cmd.motor_cmd[idx].kp = kp_ * 4.0F;
-        cmd.motor_cmd[idx].kd = kd_ * 4.0F;
-      } else {
-        cmd.motor_cmd[idx].kp = kp_;
-        cmd.motor_cmd[idx].kd = kd_;
+            for (size_t j = 0; j < arm_joints_.size(); ++j) {
+              if (e_stop) {
+                break;
+              }
+              int idx = static_cast<int>(arm_joints_[j]);
+              cmd.motor_cmd[idx].q = looped_rec[i][j];
+              cmd.motor_cmd[idx].dq = 0.0F;
+              cmd.motor_cmd[idx].tau = 0.0F;
+              if (j >= arm_joints_.size() - 3) {
+                cmd.motor_cmd[idx].kp = kp_ * 4.0F;
+                cmd.motor_cmd[idx].kd = kd_ * 4.0F;
+              } else {
+                cmd.motor_cmd[idx].kp = kp_;
+                cmd.motor_cmd[idx].kd = kd_;
+              }
+            }
+
+            cmd.motor_cmd[static_cast<int>(NOT_USED_JOINT)].q = 1.0F;
+            pub_->publish(cmd);
+            std::this_thread::sleep_for(1ms);
+          }
+        }
+        RCLCPP_INFO(this->get_logger(), "looped recording ended.");
+        looped_rec.clear();
+        waiting_for_user = false;
+        user_flag = false;
       }
     }
+    LowCmd cmd;
 
-    cmd.motor_cmd[static_cast<int>(NOT_USED_JOINT)].q = 1.0F;
 
     switch (data_flag) {
       case 0:   // regular point
         MoveTo(current_jpos_, init_pos_, move_duration_, true);
         break;
+
       case 1:   // Continuous Recording
+        for (size_t i = 0; i < arm_joints_.size(); ++i) {
+          int idx = static_cast<int>(arm_joints_[i]);
+          cmd.motor_cmd[idx].q = current_jpos_[i];
+          cmd.motor_cmd[idx].dq = 0.0F;
+          cmd.motor_cmd[idx].tau = 0.0F;
+          if (i >= arm_joints_.size() - 3) {
+            cmd.motor_cmd[idx].kp = kp_ * 4.0F;
+            cmd.motor_cmd[idx].kd = kd_ * 4.0F;
+          } else {
+            cmd.motor_cmd[idx].kp = kp_;
+            cmd.motor_cmd[idx].kd = kd_;
+          }
+        }
+
+        cmd.motor_cmd[static_cast<int>(NOT_USED_JOINT)].q = 1.0F;
         pub_->publish(cmd);
         std::this_thread::sleep_for(1ms);
         break;
+
       case 2:   // User input required
         MoveTo(current_jpos_, init_pos_, move_duration_, true);
+        waiting_for_user = true;
+        RCLCPP_INFO(this->get_logger(), "Waiting for user input...");
         while (!((user_flag) || (e_stop))){
           std::this_thread::sleep_for(100ms);
         }
+        RCLCPP_INFO(this->get_logger(), "User input received.");
+        waiting_for_user = false;
         user_flag = false;
         break;
+
       case 3:   // Looped continuous recording
+        looping_flag = true;
+        looped_rec.push_back(current_jpos_);
         break;
     }
 
@@ -342,27 +394,37 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
             btn_flag = false;
         }
     } 
-
+    // 9 - lb; 10 - rb; 11 = up(d-pad)
     // Buttons flip the btn_flag (flaps back when released), the busy_flag (flips back when gesture completes), and e_stop flag (flips back when gesture completes)
     else if (message->buttons[0] == 1) {
-      ButtonsHelper("gestures/wave.txt");
+      ButtonsHelper("gestures/csv_test3.csv");
       btn_flag = true;
     }
     else if (message->buttons[1] == 1) {
-      ButtonsHelper("gestures/punch.txt");
+      //ButtonsHelper("gestures/punch.csv");
       btn_flag = true;
     }
     else if (message->buttons[2] == 1) {
-      ButtonsHelper("gestures/head_rub.txt");
+      //ButtonsHelper("gestures/head_rub.csv");
       btn_flag = true;
     }
     else if (message->buttons[3] == 1) {
       ButtonsHelper("gestures/ymca.csv");
       btn_flag = true;
     }
-    else if (message->buttons[10] == 1) {
-      ButtonsHelper("gestures/csv_test.csv");
+    else if (message->buttons[9] == 1) {
+      ButtonsHelper("gestures/csv_test2.csv");
       btn_flag = true;
+    }
+    else if (message->buttons[10] == 1) {
+      ButtonsHelper("gestures/csv_test1.csv");
+      btn_flag = true;
+    }
+    else if (message->buttons[11] == 1) {
+      btn_flag = true;
+      if (waiting_for_user) {
+        user_flag = true;
+      }
     }
     else {
         //RCLCPP_INFO(this->get_logger(), "CONTROLLER HANDLER; Listening...");

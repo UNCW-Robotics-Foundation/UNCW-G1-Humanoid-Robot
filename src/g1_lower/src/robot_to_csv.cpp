@@ -28,6 +28,7 @@ class RobotToCSV : public rclcpp::Node {
         bool state_received = false;
         bool c_rec_flag = false;
         bool first_c_rec_flag = true;
+        bool l_flag = false;
         std::array<float, 29> g1JointPos{};
         std::vector<std::array<float, 29>> storedJoints;
         std::vector<int> storedFlags;
@@ -56,21 +57,27 @@ class RobotToCSV : public rclcpp::Node {
             RCLCPP_INFO(this->get_logger(), "LowState subscribed. Recording starting...");
 
             std::cout << std::endl;
-            std::cout << "Empty input for single point, input u for user point, input c for continuous recording. input anything else to stop: ";
+            std::cout << "Empty input for single point, input u for user point, input c for continuous recording, input l for looped recording, input anything else to stop: ";
             std::getline(std::cin, str);
-            while ((str == "") || (str == "c") || (str == "u")) {
+            while ((str == "") || (str == "c") || (str == "u") || (str == "l")) {
                 if (str == "") {
                     storedFlags.push_back(0);
                 } else if (str == "u") {
                     storedFlags.push_back(2);
                 }
 
-                if (str == "c") {
+                if ((str == "c") || (str == "l")) {
                     c_rec_flag = true;
                     first_c_rec_flag = true;
-                    std::cout << "Continuous recording started. Press enter to stop...";
+                    if (str == "l") {
+                        l_flag = true;
+                        std::cout << "Continuous looped recording started. Press enter to stop...";
+                    } else {
+                        std::cout << "Continuous recording started. Press enter to stop...";
+                    }
                     std::getline(std::cin, str);
                     c_rec_flag = false;
+                    l_flag = false;
                 } else{
                     storedJoints.push_back(g1JointPos);
                     counter++;
@@ -79,7 +86,7 @@ class RobotToCSV : public rclcpp::Node {
                         spacing.pop_back();
                 }
                 }
-                std::cout << counter << spacing << "point(s) recorded. (empty: regular point; u: user point; c: continuous recording; anything else: exit): ";
+                std::cout << counter << spacing << "point(s) recorded. (empty: regular point; u: user point; c: continuous recording; l: looped recording; anything else: exit): ";
                 std::getline(std::cin, str);
 
             }
@@ -114,7 +121,9 @@ class RobotToCSV : public rclcpp::Node {
         void ContinuousRec() {
             if (c_rec_flag) {
                 storedJoints.push_back(g1JointPos);
-                if (!(first_c_rec_flag)) {
+                if (l_flag) {
+                    storedFlags.push_back(3);
+                } else if (!(first_c_rec_flag)) {
                     storedFlags.push_back(1);
                 } else{
                     storedFlags.push_back(0);
