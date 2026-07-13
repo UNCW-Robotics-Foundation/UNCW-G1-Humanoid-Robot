@@ -29,6 +29,7 @@ class RobotToCSV : public rclcpp::Node {
         bool c_rec_flag = false;
         bool first_c_rec_flag = true;
         bool l_flag = false;
+        bool last_l_flag = false;
         std::array<float, 29> g1JointPos{};
         std::vector<std::array<float, 29>> storedJoints;
         std::vector<int> storedFlags;
@@ -71,6 +72,7 @@ class RobotToCSV : public rclcpp::Node {
                     first_c_rec_flag = true;
                     if (str == "l") {
                         l_flag = true;
+                        last_l_flag = true;
                         std::cout << "Continuous looped recording started. Press enter to stop...";
                     } else {
                         std::cout << "Continuous recording started. Press enter to stop...";
@@ -134,6 +136,9 @@ class RobotToCSV : public rclcpp::Node {
                     max = max * 10;
                     spacing.pop_back();
                 }
+            } else if (last_l_flag) {
+                storedJoints.push_back(g1JointPos);
+                storedFlags.push_back(1);
             }
         }
 

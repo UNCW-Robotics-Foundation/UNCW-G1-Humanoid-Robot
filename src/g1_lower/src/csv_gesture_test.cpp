@@ -99,7 +99,6 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
   int count = 0;
   std::string file_name; 
   bool state_received_ = false;
-  bool initial_move_ = false;
   bool btn_flag = false;
   bool busy_flag = false;
   bool e_stop = false;
@@ -174,7 +173,7 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
       // after file is read, the robot gets moved back to initial position
       GestureTxtFile.close();
       //RCLCPP_INFO(this->get_logger(), "Moving to init");
-      MoveTo(start_pos, init_pos_, move_duration_, true);
+      MoveToFinal(start_pos, init_pos_, move_duration_, true);
       //RCLCPP_INFO(this->get_logger(), "Gesture complete.");
       LowCmd cmd;
       cmd.motor_cmd[static_cast<int>(NOT_USED_JOINT)].q = 0.0F;
@@ -184,6 +183,7 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
       // flags get reset
       busy_flag = false;
       e_stop = false;
+      last_move = false;
       move_duration_ = 3.0F;
     }
   }
@@ -239,9 +239,13 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
         looped_rec.clear();
         waiting_for_user = false;
         user_flag = false;
+        looping_flag = false;
       }
     }
     LowCmd cmd;
+    if (e_stop) {
+      return;
+    }
 
 
     switch (data_flag) {
@@ -351,6 +355,34 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
     }
   }
 
+  void MoveToFinal(const std::array<float, NUM_ARM_JOINTS>& target,
+              std::array<float, NUM_ARM_JOINTS>& current, float duration,
+              bool smooth) {
+    const int steps = static_cast<int>(duration / control_dt_);
+    const float max_delta = max_joint_velocity_ * control_dt_;
+
+    const std::array<float, NUM_ARM_JOINTS> initial = current;
+
+    for (int i = 0; i < steps; ++i) {
+      float phase = static_cast<float>(i) / static_cast<float>(steps);
+
+      for (size_t j = 0; j < arm_joints_.size(); ++j) {
+        if (smooth) {
+          // smooth mode: linear interpolation
+          //current[j] = current[j] * (1 - phase) + target[j] * phase;
+          current[j] = ((i * (target[j] - initial[j])) / steps) + initial[j];
+        } else {
+          // non-smooth mode: move with max velocity
+          float diff = target[j] - current[j];
+          current[j] += std::clamp(diff, -max_delta, max_delta);
+        }
+      }
+
+      SendPositionCommand(current);
+      std::this_thread::sleep_for(sleep_time_);
+    }
+  }
+
   /*
   Helper function for MoveTo function. Very similar to control function.
   */
@@ -401,7 +433,7 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
       btn_flag = true;
     }
     else if (message->buttons[1] == 1) {
-      //ButtonsHelper("gestures/punch.csv");
+      ButtonsHelper("gestures/raise.csv");
       btn_flag = true;
     }
     else if (message->buttons[2] == 1) {
@@ -465,7 +497,6 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
       file_name = gesture_name;
       btn_flag = true;
       busy_flag = true;
-      initial_move_ = false;
     } else {
       //RCLCPP_INFO(this->get_logger(), "Button pressed while busy");
       e_stop = true;
