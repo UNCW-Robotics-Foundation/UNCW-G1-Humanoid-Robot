@@ -437,7 +437,7 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
       btn_flag = true;
     }
     else if (message->buttons[2] == 1) {
-      //ButtonsHelper("gestures/head_rub.csv");
+      ButtonsHelper("gestures/recording_test.csv");
       btn_flag = true;
     }
     else if (message->buttons[3] == 1) {

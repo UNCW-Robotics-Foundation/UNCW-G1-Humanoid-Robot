@@ -69,12 +69,12 @@ class RobotToCSV : public rclcpp::Node {
 
                 if ((str == "c") || (str == "l")) {
                     c_rec_flag = true;
-                    first_c_rec_flag = true;
                     if (str == "l") {
                         l_flag = true;
                         last_l_flag = true;
                         std::cout << "Continuous looped recording started. Press enter to stop...";
                     } else {
+                        first_c_rec_flag = true;
                         std::cout << "Continuous recording started. Press enter to stop...";
                     }
                     std::getline(std::cin, str);
@@ -138,7 +138,8 @@ class RobotToCSV : public rclcpp::Node {
                 }
             } else if (last_l_flag) {
                 storedJoints.push_back(g1JointPos);
-                storedFlags.push_back(1);
+                storedFlags.push_back(0);
+                last_l_flag = false;
             }
         }
 
