@@ -62,8 +62,8 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
 
  public:
   CustomGestureController() : Node("custom_gesture_controller") {
-    pub_ = this->create_publisher<LowCmd>("/lowcmd", 10); // uncomment for Mujoco
-    //pub_ = this->create_publisher<LowCmd>("/arm_sdk", 10);  // uncomment for real robot
+    //pub_ = this->create_publisher<LowCmd>("/lowcmd", 10); // uncomment for Mujoco
+    pub_ = this->create_publisher<LowCmd>("/arm_sdk", 10);  // uncomment for real robot
     sub_ = this->create_subscription<LowState>(
         "/lowstate", 10,
         [this](const LowState::SharedPtr msg) { StateCallback(msg); });
