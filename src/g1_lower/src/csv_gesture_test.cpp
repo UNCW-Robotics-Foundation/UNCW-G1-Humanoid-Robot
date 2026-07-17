@@ -429,7 +429,7 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
     // 9 - lb; 10 - rb; 11 = up(d-pad)
     // Buttons flip the btn_flag (flaps back when released), the busy_flag (flips back when gesture completes), and e_stop flag (flips back when gesture completes)
     else if (message->buttons[0] == 1) {
-      ButtonsHelper("gestures/csv_test3.csv");
+      ButtonsHelper("gestures/wave.csv");
       btn_flag = true;
     }
     else if (message->buttons[1] == 1) {
@@ -445,11 +445,11 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
       btn_flag = true;
     }
     else if (message->buttons[9] == 1) {
-      ButtonsHelper("gestures/csv_test2.csv");
+      ButtonsHelper("gestures/rodeo.csv");
       btn_flag = true;
     }
     else if (message->buttons[10] == 1) {
-      ButtonsHelper("gestures/csv_test1.csv");
+      ButtonsHelper("gestures/wings.csv");
       btn_flag = true;
     }
     else if (message->buttons[11] == 1) {

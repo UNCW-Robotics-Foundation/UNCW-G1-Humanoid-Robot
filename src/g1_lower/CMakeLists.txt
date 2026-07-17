@@ -70,6 +70,9 @@ ament_target_dependencies(g1_lowcmd_listener ${DEPENDENCY_LIST})
 add_executable(g1_lowcmd_test src/g1_lowcmd_test.cpp src/common/motor_crc_hg.cpp)
 ament_target_dependencies(g1_lowcmd_test ${DEPENDENCY_LIST})
 
+add_executable(hands_controller src/hands_controller.cpp)
+ament_target_dependencies(hands_controller ${DEPENDENCY_LIST})
+
 add_executable(hands_test src/hands_test.cpp)
 ament_target_dependencies(hands_test ${DEPENDENCY_LIST})
 
@@ -101,6 +104,7 @@ install(TARGETS g1_arms_txt)
 install(TARGETS g1_gesture_control)
 install(TARGETS g1_lowcmd_listener)
 install(TARGETS g1_lowcmd_test)
+install(TARGETS hands_controller)
 install(TARGETS hands_test)
 install(TARGETS jointstate_lowcmd_bridge)
 install(TARGETS loco_client_test)
