@@ -133,7 +133,6 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
       //RCLCPP_INFO(this->get_logger(), "Initial pose recorded...");
       //RCLCPP_INFO(this->get_logger(), "Performing gesture...");
       unitree_hg::msg::LowState low_state_data;
-      int i = 0;
 
       std::ifstream GestureFile(file_name);
       getline (GestureFile, gesture_data);
@@ -201,7 +200,7 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
         //RCLCPP_INFO(this->get_logger(), "Beginning looped recording...");
         while (!(user_flag) && !(e_stop)) {
           MoveTo(looped_rec[0], init_pos_, 1.0F);
-          for (int i = 1; i < looped_rec.size(); i++) {
+          for (long unsigned int i = 1; i < looped_rec.size(); i++) {
             if (e_stop || user_flag) {
               break;
             }
@@ -304,13 +303,9 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
   void MoveTo(const std::array<float, NUM_ARM_JOINTS>& target,
               std::array<float, NUM_ARM_JOINTS>& current, float duration) {
     const int steps = static_cast<int>(duration / control_dt_);
-    const float max_delta = max_joint_velocity_ * control_dt_;
-
     const std::array<float, NUM_ARM_JOINTS> initial = current;
 
     for (int i = 0; i < steps; ++i) {
-      float phase = static_cast<float>(i) / static_cast<float>(steps);
-
       for (size_t j = 0; j < arm_joints_.size(); ++j) {
         // linear interpolation
         current[j] = ((i * (target[j] - initial[j])) / steps) + initial[j];
@@ -334,13 +329,9 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
   void MoveToFinal(const std::array<float, NUM_ARM_JOINTS>& target,
               std::array<float, NUM_ARM_JOINTS>& current, float duration) {
     const int steps = static_cast<int>(duration / control_dt_);
-    const float max_delta = max_joint_velocity_ * control_dt_;
-
     const std::array<float, NUM_ARM_JOINTS> initial = current;
 
     for (int i = 0; i < steps; ++i) {
-      float phase = static_cast<float>(i) / static_cast<float>(steps);
-
       for (size_t j = 0; j < arm_joints_.size(); ++j) {
           // linear interpolation
         current[j] = ((i * (target[j] - initial[j])) / steps) + initial[j];
@@ -383,13 +374,14 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
     // Method for knowing when a butten has been released so presses don't repeat. Joy msg is different from wireless controller msg
     if (btn_flag) {
         int press_counter = 0;
-        for (int i = 0; i < message->buttons.size(); i++) {
+        int msg_btn_size = message->buttons.size();
+        for (int i = 0; i < msg_btn_size; i++) {
             if (message->buttons[i] == 1) {
                 break;
             }
             press_counter++;
         }
-        if (press_counter == message->buttons.size()) {
+        if (press_counter == msg_btn_size) {
             //RCLCPP_INFO(this->get_logger(), "CONTROLLER HANDLER; Button released...");
             btn_flag = false;
         }
@@ -435,14 +427,24 @@ std::array<float, NUM_ARM_JOINTS> target_pos_ = {
     } else if ((data->keys == 514) && (btn_flag)) { // L1 + B
       ButtonsHelper("gestures/raise.csv");
       btn_flag = false;
+    } else if ((data->keys == 1026) && (btn_flag)) { // L1 + X
+      ButtonsHelper("gestures/rodeo.csv");
+      btn_flag = false;
+    } else if ((data->keys == 2050) && (btn_flag)) { // L1 + Y
+      ButtonsHelper("gestures/wave.csv");
+      btn_flag = false;
+    } else if ((data->keys == 4098) && (btn_flag)) { // L1 + B
+      ButtonsHelper("gestures/wings.csv");
+      btn_flag = false;
     } else if ((data->keys == 6) && (btn_flag)) { // L1 + START
       if (waiting_for_user) {
         user_flag = true;
       }
       btn_flag = false;
     }
-    // Method for avoiding held presses. While btn_flag is false, nothing happens.
-      else if ((data->keys == 0) && !(btn_flag)) {
+    // Method for avoiding held presses. While btn_flag is false, nothing happens. 2 is th value for LB,
+    // so users can hold lb and press a button without needing to let go of everything everytime
+      else if ((data->keys <= 2) && !(btn_flag)) {
       btn_flag = true;
     }
 
