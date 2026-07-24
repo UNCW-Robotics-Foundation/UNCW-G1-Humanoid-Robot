@@ -94,7 +94,7 @@ class HandsTest : public rclcpp::Node {
     std::array<float, 6> target {1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
     std::array<float, 6> current = current_pos;
     const std::array<float, 6> initial = current;
-    float duration = 1.0;
+    float duration = 4.0;
     const int steps = static_cast<int>(duration / control_dt_);
 
     switch (test) {
@@ -102,51 +102,52 @@ class HandsTest : public rclcpp::Node {
       case 0:
         while ( true )
         {
-            RCLCPP_INFO(this->get_logger(), "Opening hand...");
-            positions = {0, 0, 0, 0, 0, 0};
-            for (int i = 0; i < positions.size(); i++) {
-                unitree_go::msg::MotorCmd handCmd;
-                handCmd.q = positions[i];
-                handCmd.dq = 0.5F;
-                handCmd.tau = 0.0F;
-                handCmd.kp = 0.0F;
-                handCmd.kd = 0.0F;
-                handCmd.mode = 0;
-                tmpCommands.push_back(handCmd);
-            }
-            handCmds.cmds = tmpCommands;
-            pub_->publish(handCmds);
-            std::this_thread::sleep_for(std::chrono::milliseconds(1500));
-            RCLCPP_INFO(this->get_logger(), "Closing fingers...");
-            positions = {0, 1, 1, 1, 1, 1};
-            for (int i = 0; i < positions.size(); i++) {
-                unitree_go::msg::MotorCmd handCmd;
-                handCmd.q = positions[i];
-                handCmd.dq = 0.5F;
-                handCmd.tau = 0.0F;
-                handCmd.kp = 0.0F;
-                handCmd.kd = 0.0F;
-                handCmd.mode = 0;
-                tmpCommands[i] = handCmd;
-            }
-            handCmds.cmds = tmpCommands;
-            pub_->publish(handCmds);
-            std::this_thread::sleep_for(std::chrono::milliseconds(1500));
-            RCLCPP_INFO(this->get_logger(), "Closing thumb...");
-            positions = {1, 1, 1, 1, 1, 1};
-            for (int i = 0; i < positions.size(); i++) {
-                unitree_go::msg::MotorCmd handCmd;
-                handCmd.q = positions[i];
-                handCmd.dq = 0.5F;
-                handCmd.tau = 0.0F;
-                handCmd.kp = 0.0F;
-                handCmd.kd = 0.0F;
-                handCmd.mode = 0;
-                tmpCommands[i] = handCmd;
-            }
-            handCmds.cmds = tmpCommands;
-            pub_->publish(handCmds);
-            std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+          tmpCommands.clear();
+          RCLCPP_INFO(this->get_logger(), "Opening hand...");
+          positions = {0, 0, 0, 0, 0, 0};
+          for (int i = 0; i < 6; i++) {
+              unitree_go::msg::MotorCmd handCmd;
+              handCmd.q = positions[i];
+              handCmd.dq = 1.0F;
+              handCmd.tau = 0.0F;
+              handCmd.kp = 0.0F;
+              handCmd.kd = 0.0F;
+              handCmd.mode = 0;
+              tmpCommands.push_back(handCmd);
+          }
+          handCmds.cmds = tmpCommands;
+          pub_->publish(handCmds);
+          std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+          RCLCPP_INFO(this->get_logger(), "Closing fingers...");
+          positions = {0, 1, 1, 1, 1, 1};
+          for (int i = 0; i < 6; i++) {
+              unitree_go::msg::MotorCmd handCmd;
+              handCmd.q = positions[i];
+              handCmd.dq = 1.0F;
+              handCmd.tau = 0.0F;
+              handCmd.kp = 0.0F;
+              handCmd.kd = 0.0F;
+              handCmd.mode = 0;
+              tmpCommands[i] = handCmd;
+          }
+          handCmds.cmds = tmpCommands;
+          pub_->publish(handCmds);
+          std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+          RCLCPP_INFO(this->get_logger(), "Closing thumb...");
+          positions = {1, 1, 1, 1, 1, 1};
+          for (int i = 0; i < 6; i++) {
+              unitree_go::msg::MotorCmd handCmd;
+              handCmd.q = positions[i];
+              handCmd.dq = 1.0F;
+              handCmd.tau = 0.0F;
+              handCmd.kp = 0.0F;
+              handCmd.kd = 0.0F;
+              handCmd.mode = 0;
+              tmpCommands[i] = handCmd;
+          }
+          handCmds.cmds = tmpCommands;
+          pub_->publish(handCmds);
+          std::this_thread::sleep_for(std::chrono::milliseconds(1000));
         }
         break;
 
@@ -157,9 +158,6 @@ class HandsTest : public rclcpp::Node {
         }
 
         for (int i = 0; i < steps; ++i) {
-          //RCLCPP_INFO(this->get_logger(), "entered steps...");
-          float phase = static_cast<float>(i) / static_cast<float>(steps);
-
           for (size_t j = 0; j < 6; ++j) {
             current[j] = ((i * (target[j] - initial[j])) / steps) + initial[j];
           }
@@ -190,7 +188,7 @@ class HandsTest : public rclcpp::Node {
         }
         RCLCPP_INFO(this->get_logger(), "Opening hand...");
         positions = {0, 0, 0, 0, 0, 0};
-        for (int i = 0; i < positions.size(); i++) {
+        for (int i = 0; i < 6; i++) {
             unitree_go::msg::MotorCmd handCmd;
             handCmd.q = positions[i];
             handCmd.dq = 0.5F;
@@ -206,7 +204,7 @@ class HandsTest : public rclcpp::Node {
 
         RCLCPP_INFO(this->get_logger(), "Closing fingers...");
         positions = {0, 1, 1, 1, 1, 1};
-        for (int i = 0; i < positions.size(); i++) {
+        for (int i = 0; i < 6; i++) {
           unitree_go::msg::MotorCmd handCmd;
           handCmd.q = positions[i];
           handCmd.dq = 0.5F;
@@ -225,7 +223,7 @@ class HandsTest : public rclcpp::Node {
           if (touch_flag) {
             RCLCPP_INFO(this->get_logger(), "Touch detected. Sending stop comand...");
             std::array<float, 6> current = current_pos;
-            for (int i = 0; i < positions.size(); i++) {
+            for (int i = 0; i < 6; i++) {
               unitree_go::msg::MotorCmd handCmd;
               handCmd.q = current[i];
               handCmd.dq = 1.0F;

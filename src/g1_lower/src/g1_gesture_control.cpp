@@ -53,15 +53,11 @@ std::array<G1Arm7JointIndex, NUM_ARM_JOINTS> arm_joints_ = {
     G1Arm7JointIndex::WAIST_YAW,
     G1Arm7JointIndex::WAIST_ROLL,
     G1Arm7JointIndex::WAIST_PITCH};
-std::array<float, NUM_ARM_JOINTS> target_pos_ = {
-    0.0F, PI_2,  0.0F, PI_2, 0.0F, 0.0F, 0.0F,  // left
-    0.0F, -PI_2, 0.0F, PI_2, 0.0F, 0.0F, 0.0F,  // right
-    0.0F, 0.F,   0.F};
 
  public:
   CustomGestureController() : Node("custom_gesture_controller") {
-    pub_ = this->create_publisher<LowCmd>("/lowcmd", 10); // uncomment for Mujoco
-    //pub_ = this->create_publisher<LowCmd>("/arm_sdk", 10);  // uncomment for real robot
+    //pub_ = this->create_publisher<LowCmd>("/lowcmd", 10); // uncomment for Mujoco
+    pub_ = this->create_publisher<LowCmd>("/arm_sdk", 10);  // uncomment for real robot
     sub_ = this->create_subscription<LowState>(
         "/lowstate", 10,
         [this](const LowState::SharedPtr msg) { StateCallback(msg); });
