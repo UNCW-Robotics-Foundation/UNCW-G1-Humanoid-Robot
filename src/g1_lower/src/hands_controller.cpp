@@ -27,7 +27,6 @@ class HandsController : public rclcpp::Node {
         [this](const unitree_go::msg::WirelessController::SharedPtr data) {
           WirelessCallback(data);
         }); 
-    //thread_ = std::thread([this]() { ControlLoop(); });
 
   }
 
@@ -35,24 +34,27 @@ class HandsController : public rclcpp::Node {
   private:
   rclcpp::Publisher<unitree_go::msg::MotorCmds>::SharedPtr l_pub_;
   rclcpp::Publisher<unitree_go::msg::MotorCmds>::SharedPtr r_pub_;
-  rclcpp::Subscription<unitree_go::msg::WirelessController>::SharedPtr suber_;
-  //std::thread thread_;
-  //std::array<float, 6> positions; 
+  rclcpp::Subscription<unitree_go::msg::WirelessController>::SharedPtr suber_; 
 
   const std::array<float, 6> open_hand {0, 0, 0, 0, 0, 0}; 
   const std::array<float, 6> fist {1, 1, 1, 1, 1, 1}; 
+  const std::array<float, 6> pre_fist {0, 1, 1, 1, 1, 1}; 
   const std::array<float, 6> thumb_out {0, 0, 1, 1, 1, 1}; 
   const std::array<float, 6> point {1, 1, 0, 1, 1, 1}; 
+  const std::array<float, 6> pre_point {0, 1, 0, 1, 1, 1}; 
+
+  enum class HandFlag : int {
+    LEFT = 0,
+    RIGHT = 1,
+    BOTH = 2
+  };
 
   bool btn_flag = false;
-  bool left = true;
-  bool right = false;
 
-  void MoveHands(std::array<float, 6> positions, bool pub_flag) {
+  void MoveHands(std::array<float, 6> positions, int hand_flag) {
     std::vector<unitree_go::msg::MotorCmd> tmpCommands;
     unitree_go::msg::MotorCmds handCmds;
 
-    //positions = {0, 0, 0, 0, 0, 0};
     for (int i = 0; i < positions.size(); i++) {
         unitree_go::msg::MotorCmd handCmd;
         handCmd.q = positions[i];
@@ -64,10 +66,20 @@ class HandsController : public rclcpp::Node {
         tmpCommands.push_back(handCmd);
     }
     handCmds.cmds = tmpCommands;
-    if (pub_flag) {
-      l_pub_->publish(handCmds);
-    } else {
-      r_pub_->publish(handCmds);
+
+    switch (hand_flag) {
+      case 0:
+        l_pub_->publish(handCmds);
+        break;
+      
+      case 1:
+        r_pub_->publish(handCmds);
+        break;
+
+      case 2:
+        l_pub_->publish(handCmds);
+        r_pub_->publish(handCmds);
+        break;
     }
   }
 
@@ -83,44 +95,52 @@ class HandsController : public rclcpp::Node {
   void WirelessCallback(const unitree_go::msg::WirelessController::SharedPtr& data) {
     // Buttons flip the btn_flag (flaps back when released), the busy_flag (flips back when gesture completes), and e_stop flag (flips back when gesture completes)
     if ((data->keys == 65) && (btn_flag)) {         // f1 + r1
-      MoveHands(open_hand, left);
+      MoveHands(open_hand, static_cast<int>(HandFlag::LEFT));
       btn_flag = false;
     } else if ((data->keys == 129) && (btn_flag)) { // f3 + r1
-      MoveHands(open_hand, right);
+      MoveHands(open_hand, static_cast<int>(HandFlag::RIGHT));
       btn_flag = false;
     }else if ((data->keys == 193) && (btn_flag)) {  // f1 + f3 + r1
-      MoveHands(open_hand, left);
-      MoveHands(open_hand, right);
+      MoveHands(open_hand, static_cast<int>(HandFlag::BOTH));
       btn_flag = false;
     }else if ((data->keys == 80) && (btn_flag)) { // f1 + r2
-      MoveHands(fist, left);
+      MoveHands(pre_fist, static_cast<int>(HandFlag::LEFT));
+      std::this_thread::sleep_for(400ms);
+      MoveHands(fist, static_cast<int>(HandFlag::LEFT));
       btn_flag = false;
     }else if ((data->keys == 144) && (btn_flag)) { // f3 + r2
-      MoveHands(fist, right);
+      MoveHands(pre_fist, static_cast<int>(HandFlag::RIGHT));
+      std::this_thread::sleep_for(400ms);
+      MoveHands(fist, static_cast<int>(HandFlag::RIGHT));
       btn_flag = false;
     }else if ((data->keys == 208) && (btn_flag)) { // f1 + f3 + r2
-      MoveHands(fist, left);
-      MoveHands(fist, right);
+      MoveHands(pre_fist, static_cast<int>(HandFlag::BOTH));
+      std::this_thread::sleep_for(400ms);
+      MoveHands(fist, static_cast<int>(HandFlag::BOTH));
       btn_flag = false;
     }else if ((data->keys == 66) && (btn_flag)) { // f1 + l1
-      MoveHands(thumb_out, left);
+      MoveHands(thumb_out, static_cast<int>(HandFlag::LEFT));
       btn_flag = false;
     }else if ((data->keys == 130) && (btn_flag)) { // f3 + l1
-      MoveHands(thumb_out, right);
+      MoveHands(thumb_out, static_cast<int>(HandFlag::RIGHT));
       btn_flag = false;
     }else if ((data->keys == 194) && (btn_flag)) { // f1 + f3 + l1
-      MoveHands(thumb_out, left);
-      MoveHands(thumb_out, right);
+      MoveHands(thumb_out, static_cast<int>(HandFlag::BOTH));
       btn_flag = false;
     }else if ((data->keys == 96) && (btn_flag)) { // f1 + l2
-      MoveHands(point, left);
+      MoveHands(pre_point, static_cast<int>(HandFlag::LEFT));
+      std::this_thread::sleep_for(400ms);
+      MoveHands(point, static_cast<int>(HandFlag::LEFT));
       btn_flag = false;
     }else if ((data->keys == 160) && (btn_flag)) { // f3 + l2
-      MoveHands(point, right);
+      MoveHands(pre_point, static_cast<int>(HandFlag::RIGHT));
+      std::this_thread::sleep_for(400ms);
+      MoveHands(point, static_cast<int>(HandFlag::RIGHT));
       btn_flag = false;
     }else if ((data->keys == 224) && (btn_flag)) { // f1 + f3 + l2
-      MoveHands(point, left);
-      MoveHands(point, right);
+      MoveHands(pre_point, static_cast<int>(HandFlag::BOTH));
+      std::this_thread::sleep_for(400ms);
+      MoveHands(point, static_cast<int>(HandFlag::BOTH));
       btn_flag = false;
   
     // Method for avoiding held presses. While btn_flag is false, nothing happens.
