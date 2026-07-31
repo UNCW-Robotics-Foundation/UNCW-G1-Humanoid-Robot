@@ -3,6 +3,11 @@
 #include "unitree_hg/msg/low_state.hpp"
 #include "sensor_msgs/msg/joint_state.hpp"
 
+#include "unitree_go/msg/sport_mode_state.hpp"
+#include "tf2/LinearMath/Quaternion.h"
+#include "tf2_ros/transform_broadcaster.h"
+#include "geometry_msgs/msg/transform_stamped.hpp"
+
 const int G1_NUM_MOTOR = 29;
 const int BRAINCO_NUM_MOTOR = 12;
 const int BRAINCO_NUM_STILL = 20;
@@ -82,8 +87,16 @@ class LowStateSuber : public rclcpp::Node {
                 [this](const unitree_hg::msg::LowState::SharedPtr data) {
                 LowStateHandler(data);
                 });
+
+            imu_suber_ = this->create_subscription<unitree_go::msg::SportModeState>(
+                "/lf/odommodestate", 10,
+                [this](const unitree_go::msg::SportModeState::SharedPtr data) {
+                ImuStateHandler(data);
+                });
             
             js_pub = this->create_publisher<sensor_msgs::msg::JointState>("joint_states", 10);
+
+            tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
         }
 
     private:
@@ -111,9 +124,39 @@ class LowStateSuber : public rclcpp::Node {
 
             js_pub->publish(js);
         }
+
+        void ImuStateHandler(unitree_go::msg::SportModeState::SharedPtr msg) {
+            geometry_msgs::msg::TransformStamped t;
+            t.header.stamp = this->get_clock()->now();
+            t.header.frame_id = "world";
+            t.child_frame_id = "pelvis";
+
+            t.transform.translation.x = msg->position[0];
+            t.transform.translation.y = msg->position[1];
+            t.transform.translation.z = msg->position[2];
+
+            tf2::Quaternion q;
+            q.setRPY(msg->imu_state.rpy[0], msg->imu_state.rpy[1], msg->imu_state.rpy[2]);
+            t.transform.rotation.x = q.x();
+            t.transform.rotation.y = q.y();
+            t.transform.rotation.z = q.z();
+            t.transform.rotation.w = q.w();
+
+            // t.transform.rotation.x = msg->imu_state.quaternion[0];
+            // t.transform.rotation.y = msg->imu_state.quaternion[1];
+            // t.transform.rotation.z = msg->imu_state.quaternion[2];
+            // t.transform.rotation.w = msg->imu_state.quaternion[3];
+
+            tf_broadcaster_->sendTransform(t);
+            
+        }
     
     rclcpp::Subscription<unitree_hg::msg::LowState>::SharedPtr suber_;
+    rclcpp::Subscription<unitree_go::msg::SportModeState>::SharedPtr imu_suber_;
     rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr js_pub;
+    std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
+
+    std::string robot_name = "pelvis";
 };
 
 int main(int argc, char *argv[]) {
