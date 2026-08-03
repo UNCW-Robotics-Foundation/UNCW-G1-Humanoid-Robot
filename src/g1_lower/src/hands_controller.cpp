@@ -28,6 +28,8 @@ class HandsController : public rclcpp::Node {
           WirelessCallback(data);
         }); 
 
+    thread_ = std::thread([this]() { ContinuousMove(); });
+
   }
 
 
@@ -35,6 +37,7 @@ class HandsController : public rclcpp::Node {
   rclcpp::Publisher<unitree_go::msg::MotorCmds>::SharedPtr l_pub_;
   rclcpp::Publisher<unitree_go::msg::MotorCmds>::SharedPtr r_pub_;
   rclcpp::Subscription<unitree_go::msg::WirelessController>::SharedPtr suber_; 
+  std::thread thread_;
 
   const std::array<float, 6> open_hand {0, 0, 0, 0, 0, 0}; 
   const std::array<float, 6> fist {1, 1, 1, 1, 1, 1}; 
@@ -50,12 +53,16 @@ class HandsController : public rclcpp::Node {
   };
 
   bool btn_flag = false;
+  bool cont_flag = false;
 
   void MoveHands(std::array<float, 6> positions, int hand_flag) {
+    if (cont_flag) {
+      cont_flag = false;
+    }
     std::vector<unitree_go::msg::MotorCmd> tmpCommands;
     unitree_go::msg::MotorCmds handCmds;
 
-    for (int i = 0; i < positions.size(); i++) {
+    for (int i = 0; i < 6; i++) {
         unitree_go::msg::MotorCmd handCmd;
         handCmd.q = positions[i];
         handCmd.dq = 1.0F;
@@ -80,6 +87,53 @@ class HandsController : public rclcpp::Node {
         l_pub_->publish(handCmds);
         r_pub_->publish(handCmds);
         break;
+    }
+  }
+
+  void ContinuousMove() {
+    while (true) {  
+      while (!(cont_flag)) {
+        std::this_thread::sleep_for(500ms);
+      }
+      if (cont_flag) {
+        std::vector<unitree_go::msg::MotorCmd> tmpCommands;
+        unitree_go::msg::MotorCmds handCmds;
+
+        for (int i = 0; i < 6; i++) {
+            unitree_go::msg::MotorCmd handCmd;
+            handCmd.q = thumb_out[i];
+            handCmd.dq = 1.0F;
+            handCmd.tau = 0.0F;
+            handCmd.kp = 0.0F;
+            handCmd.kd = 0.0F;
+            handCmd.mode = 0;
+            tmpCommands.push_back(handCmd);
+        }
+        handCmds.cmds = tmpCommands;
+        l_pub_->publish(handCmds);
+        r_pub_->publish(handCmds);
+        std::this_thread::sleep_for(1000ms);
+      }
+
+      if (cont_flag) {
+        std::vector<unitree_go::msg::MotorCmd> tmpCommands;
+        unitree_go::msg::MotorCmds handCmds;
+
+        for (int i = 0; i < 6; i++) {
+            unitree_go::msg::MotorCmd handCmd;
+            handCmd.q = open_hand[i];
+            handCmd.dq = 1.0F;
+            handCmd.tau = 0.0F;
+            handCmd.kp = 0.0F;
+            handCmd.kd = 0.0F;
+            handCmd.mode = 0;
+            tmpCommands.push_back(handCmd);
+        }
+        handCmds.cmds = tmpCommands;
+        l_pub_->publish(handCmds);
+        r_pub_->publish(handCmds);
+        std::this_thread::sleep_for(1000ms);
+      }
     }
   }
 
@@ -141,6 +195,13 @@ class HandsController : public rclcpp::Node {
       MoveHands(pre_point, static_cast<int>(HandFlag::BOTH));
       std::this_thread::sleep_for(400ms);
       MoveHands(point, static_cast<int>(HandFlag::BOTH));
+      btn_flag = false;
+    }else if ((data->keys == 320) && (btn_flag)) { // f1 + A
+      if (cont_flag) {
+        cont_flag = false;
+      } else {
+        cont_flag = true;
+      }
       btn_flag = false;
   
     // Method for avoiding held presses. While btn_flag is false, nothing happens.
