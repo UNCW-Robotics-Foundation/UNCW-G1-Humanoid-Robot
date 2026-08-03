@@ -103,7 +103,6 @@ std::array<G1Arm7JointIndex, NUM_ARM_JOINTS> arm_joints_ = {
 
   float kp_{60.0F}, kd_{1.5F};
   float control_dt_{0.02F};
-  float max_joint_velocity_{0.5F};
   float move_duration_ = 3.0F;
   std::chrono::milliseconds sleep_time_{};
 
@@ -429,7 +428,7 @@ std::array<G1Arm7JointIndex, NUM_ARM_JOINTS> arm_joints_ = {
     } else if ((data->keys == 2050) && (btn_flag)) { // L1 + Y
       ButtonsHelper("gestures/wave.csv");
       btn_flag = false;
-    } else if ((data->keys == 4098) && (btn_flag)) { // L1 + B
+    } else if ((data->keys == 4098) && (btn_flag)) { // L1 + UP
       ButtonsHelper("gestures/wings.csv");
       btn_flag = false;
     } else if ((data->keys == 6) && (btn_flag)) { // L1 + START

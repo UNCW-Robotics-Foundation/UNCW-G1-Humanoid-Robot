@@ -127,6 +127,7 @@ install(TARGETS
 	wireless_controller_test
 	g1_gesture_control
 	lowstate_jointstate_bridge
+	hands_controller
 	DESTINATION lib/${PROJECT_NAME})
 
 rosidl_generate_interfaces(${PROJECT_NAME}
