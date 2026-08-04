@@ -54,6 +54,7 @@ class HandsController : public rclcpp::Node {
 
   bool btn_flag = false;
   bool cont_flag = false;
+  bool cont_num = 0;
 
   void MoveHands(std::array<float, 6> positions, int hand_flag) {
     if (cont_flag) {
@@ -95,7 +96,7 @@ class HandsController : public rclcpp::Node {
       while (!(cont_flag)) {
         std::this_thread::sleep_for(500ms);
       }
-      if (cont_flag) {
+      if (cont_flag && cont_num == 0) {
         std::vector<unitree_go::msg::MotorCmd> tmpCommands;
         unitree_go::msg::MotorCmds handCmds;
 
@@ -112,10 +113,10 @@ class HandsController : public rclcpp::Node {
         handCmds.cmds = tmpCommands;
         l_pub_->publish(handCmds);
         r_pub_->publish(handCmds);
-        std::this_thread::sleep_for(1000ms);
+        std::this_thread::sleep_for(400ms);
       }
 
-      if (cont_flag) {
+      if (cont_flag && cont_num == 0) {
         std::vector<unitree_go::msg::MotorCmd> tmpCommands;
         unitree_go::msg::MotorCmds handCmds;
 
@@ -132,7 +133,40 @@ class HandsController : public rclcpp::Node {
         handCmds.cmds = tmpCommands;
         l_pub_->publish(handCmds);
         r_pub_->publish(handCmds);
-        std::this_thread::sleep_for(1000ms);
+        std::this_thread::sleep_for(400ms);
+      }
+
+      if (cont_flag && cont_num == 1) {
+        unitree_go::msg::MotorCmds handCmds;
+        std::vector<float> flutter {1, 0, 0, 0}; 
+        while (cont_flag) {
+          std::vector<unitree_go::msg::MotorCmd> tmpCommands;
+          unitree_go::msg::MotorCmd handCmd;
+          handCmd.q = 0;
+          handCmd.dq = 1.0F;
+          handCmd.tau = 0.0F;
+          handCmd.kp = 0.0F;
+          handCmd.kd = 0.0F;
+          handCmd.mode = 0;
+          tmpCommands.push_back(handCmd);
+          tmpCommands.push_back(handCmd);
+          for (int i = 0; i < 4; i++) {
+              unitree_go::msg::MotorCmd handCmd;
+              handCmd.q = flutter[i];
+              handCmd.dq = 1.0F;
+              handCmd.tau = 0.0F;
+              handCmd.kp = 0.0F;
+              handCmd.kd = 0.0F;
+              handCmd.mode = 0;
+              tmpCommands.push_back(handCmd);
+          }
+          handCmds.cmds = tmpCommands;
+          l_pub_->publish(handCmds);
+          r_pub_->publish(handCmds);
+          flutter.insert(flutter.begin(), flutter[3]);
+          flutter.pop_back();
+          std::this_thread::sleep_for(300ms);
+        }
       }
     }
   }
@@ -200,6 +234,15 @@ class HandsController : public rclcpp::Node {
       if (cont_flag) {
         cont_flag = false;
       } else {
+        cont_num = 0;
+        cont_flag = true;
+      }
+      btn_flag = false;
+    }else if ((data->keys == 576) && (btn_flag)) { // f1 + B
+      if (cont_flag) {
+        cont_flag = false;
+      } else {
+        cont_num = 1;
         cont_flag = true;
       }
       btn_flag = false;

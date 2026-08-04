@@ -264,11 +264,9 @@ std::array<G1Arm7JointIndex, NUM_ARM_JOINTS> arm_joints_ = {
       case 2:   // User input required
         MoveTo(current_jpos_, init_pos_, move_duration_);
         waiting_for_user = true;
-        //RCLCPP_INFO(this->get_logger(), "Waiting for user input...");
         while (!((user_flag) || (e_stop))){
           std::this_thread::sleep_for(100ms);
         }
-        //RCLCPP_INFO(this->get_logger(), "User input received.");
         waiting_for_user = false;
         user_flag = false;
         break;
@@ -276,6 +274,15 @@ std::array<G1Arm7JointIndex, NUM_ARM_JOINTS> arm_joints_ = {
       case 3:   // Looped continuous recording
         looping_flag = true;
         looped_rec.push_back(current_jpos_);
+        break;
+
+      case 4:   // Looped continuous recording
+        waiting_for_user = true;
+        while (!((user_flag) || (e_stop))){
+          std::this_thread::sleep_for(100ms);
+        }
+        waiting_for_user = false;
+        user_flag = false;
         break;
     }
   }

@@ -98,7 +98,6 @@ ament_target_dependencies(txt_test ${DEPENDENCY_LIST})
 add_executable(wireless_controller_test src/wireless_controller_test.cpp)
 ament_target_dependencies(wireless_controller_test ${DEPENDENCY_LIST})
 
-
 install(TARGETS bag_test)
 install(TARGETS bag_to_txt)
 install(TARGETS csv_gesture_test)
