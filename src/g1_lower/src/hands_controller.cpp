@@ -45,6 +45,7 @@ class HandsController : public rclcpp::Node {
   const std::array<float, 6> thumb_out {0, 0, 1, 1, 1, 1}; 
   const std::array<float, 6> point {1, 1, 0, 1, 1, 1}; 
   const std::array<float, 6> pre_point {0, 1, 0, 1, 1, 1}; 
+  const std::array<float, 6> wings {0, 0, 0.3, 0.3, 0.3, 0.3}; 
 
   enum class HandFlag : int {
     LEFT = 0,
@@ -102,7 +103,7 @@ class HandsController : public rclcpp::Node {
 
         for (int i = 0; i < 6; i++) {
             unitree_go::msg::MotorCmd handCmd;
-            handCmd.q = thumb_out[i];
+            handCmd.q = wings[i];
             handCmd.dq = 1.0F;
             handCmd.tau = 0.0F;
             handCmd.kp = 0.0F;

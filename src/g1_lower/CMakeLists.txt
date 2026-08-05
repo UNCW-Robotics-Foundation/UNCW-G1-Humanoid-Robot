@@ -129,10 +129,6 @@ install(TARGETS
 	hands_controller
 	DESTINATION lib/${PROJECT_NAME})
 
-rosidl_generate_interfaces(${PROJECT_NAME}
-  "src/msg/LowCmdListener.msg"
- )
-
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
