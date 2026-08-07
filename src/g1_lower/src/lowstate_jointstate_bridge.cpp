@@ -80,7 +80,7 @@ class LowStateSuber : public rclcpp::Node {
         LowStateSuber() : Node("low_state_suber") {
             // suber is set to subscribe "/lowcmd" or  "lf/lowstate" (low frequencies)
             // topic
-            const auto *topic_name = "lf/lowstate";
+            const auto *topic_name = "lowstate";
             // The suber  callback function is bind to low_state_suber::topic_callback
             suber_ = this->create_subscription<unitree_hg::msg::LowState>(
                 topic_name, 10,

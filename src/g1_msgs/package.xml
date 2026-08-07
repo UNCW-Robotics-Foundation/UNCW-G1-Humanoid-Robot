@@ -1,10 +1,10 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>g1_lower</name>
+  <name>g1_msgs</name>
   <version>0.0.0</version>
   <description>TODO: Package description</description>
-  <maintainer email="temo@todo.todo">temo</maintainer>
+  <maintainer email="temomez123@gmail.com">temo</maintainer>
   <license>TODO: License declaration</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
@@ -12,20 +12,10 @@
   
   <exec_depend>rosidl_default_runtime</exec_depend>
   
-  <depend>g1_msgs</depend>
-  <depend>unitree_go</depend>
-  <depend>unitree_hg</depend>
-  <depend>unitree_api</depend>
-  <depend>rclcpp</depend>
-  <depend>std_msgs</depend>
-  <depend>rosbag2_cpp</depend>
-  <depend>tf2</depend>
-  <depend>tf2_ros</depend>
+  <member_of_group>rosidl_interface_packages</member_of_group>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
-  
-  <member_of_group>rosidl_interface_packages</member_of_group>
 
   <export>
     <build_type>ament_cmake</build_type>
