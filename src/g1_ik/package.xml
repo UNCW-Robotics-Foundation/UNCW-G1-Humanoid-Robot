@@ -7,11 +7,15 @@
   <maintainer email="temomez123@gmail.com">temo</maintainer>
   <license>Apache-2.0</license>
   
+  <exec_depend>g1_msgs</exec_depend>
   <exec_depend>rclpy</exec_depend>
   <exec_depend>unitree_go</exec_depend>
   <exec_depend>unitree_hg</exec_depend>
   <exec_depend>unitree_api</exec_depend>
   <exec_depend>pinocchio</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>tf2_ros_py</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
