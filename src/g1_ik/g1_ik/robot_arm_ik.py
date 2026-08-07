@@ -11,7 +11,7 @@ logger_mp = logging_mp.getLogger(__name__)
 parent2_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(parent2_dir)
 
-from weighted_moving_filter import WeightedMovingFilter
+from g1_ik.weighted_moving_filter import WeightedMovingFilter
 
 class G1_29_ArmIK:
     def __init__(self, Unit_Test = False):
@@ -23,11 +23,11 @@ class G1_29_ArmIK:
         self.cache_path = "g1_29_model_cache.pkl"
 
         if not self.Unit_Test:
-            self.urdf_path = '../assets/g1/g1_body29_hand14.urdf'
-            self.model_dir = '../assets/g1/'
+            self.urdf_path = '/home/temo/tmp_ws/UNCW-G1-Humanoid-Robot/src/g1_ik/assets/g1/g1_body29_hand14.urdf'
+            self.model_dir = '/home/temo/tmp_ws/UNCW-G1-Humanoid-Robot/src/g1_ik/assets/g1'
         else:
-            self.urdf_path = '../../assets/g1/g1_body29_hand14.urdf'
-            self.model_dir = '../../assets/g1/'
+            self.urdf_path = '/home/temo/tmp_ws/UNCW-G1-Humanoid-Robot/src/g1_ik/assets/g1/g1_body29_hand14.urdf'
+            self.model_dir = '/home/temo/tmp_ws/UNCW-G1-Humanoid-Robot/src/g1_ik/assets/g1'
 
         # Try loading cache first
         if os.path.exists(self.cache_path):
@@ -263,9 +263,9 @@ class G1_29_ArmIK:
             return current_lr_arm_motor_q, np.zeros(self.reduced_robot.model.nv)
         
 
-if __name__ == "__main__":
+def main(args=None):
     arm_ik = G1_29_ArmIK(Unit_Test = True)
-
+    
     # initial positon
     L_tf_target = pin.SE3(
         pin.Quaternion(1, 0, 0, 0),
@@ -311,3 +311,6 @@ if __name__ == "__main__":
             if step > 240:
                 step = 0
             time.sleep(0.1)
+
+if __name__ == "__main__":
+    main()
