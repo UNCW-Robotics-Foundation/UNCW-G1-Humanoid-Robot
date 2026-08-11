@@ -1,0 +1,9 @@
+<launch>
+  <let name="robot_description_content" value="$(command '$(find-exec xacro) $(find-pkg-share g1_lower)/urdf/g1_29dof_mode_15_brainco_hand.urdf')" />
+  
+  <node pkg="robot_state_publisher" exec="robot_state_publisher" output="both">
+    <param name="robot_description" value="$(var robot_description_content)" />    
+  </node>
+ <node pkg="rviz2" exec="rviz2" output="log" args="-d $(find-pkg-share g1_lower)/urdf/g1.rviz"/>
+        
+</launch>
