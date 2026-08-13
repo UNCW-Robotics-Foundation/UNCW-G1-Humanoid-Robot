@@ -9,7 +9,6 @@ Linux Ubuntu 22.04
 - Additional Ros2 dependencies:
 ```
 sudo apt install ros-humble-xacro ros-humble-joint-state-publisher ros-humble-joint-state-publisher-gui
-
 ```
 - Install the [unitree_ros2](https://github.com/unitreerobotics/unitree_ros2) repository. You only need to install the cyclonedd_ws package. The examples are not necessary. Simplified instructions:
 ```
@@ -19,7 +18,6 @@ git clone https://github.com/unitreerobotics/unitree_ros2
 cd unitree_ros2/cyclonedds_ws
 source /opt/ros/humble/setup.bash
 colcon build 
-
 ```  
 - If the package failed to build, refer to repository for potential troubleshooting
 - In order to see the Ros topics from the robot, follow the network configuration steps from the unitree_ros2 repo. Make sure to also change the ros source line from foxy to humble in the setup.sh files. If all of the steps were followed, and the topics are not showing up, a system restart should fix it.
@@ -56,7 +54,7 @@ The rviz simulator will not work if the unitree package is sourced, and the robo
 The build command may display errors at the end, however, these should just be warnings. If you run colcon build again, and there isn't actually an error, it will show everything complete with no warning.
 
 ## IK Solver setup
-- Install the miniforge version of conda - [Link]([https://github.com/unitreerobotics/unitree_ros2](https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html#hash-verification)
+- Install the miniforge version of conda - [Link](https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html#hash-verification)
 - Install the [Robostack](https://robostack.github.io/conda.html) packages and [xr-teleoperate](https://github.com/unitreerobotics/xr_teleoperate) dependencies with these commands:
 ```
 conda config --env --remove channels defaults
@@ -64,7 +62,6 @@ conda create -n ros_env -c conda-forge -c robostack-humble ros-humble-desktop  p
 conda activate ros_env
 conda config --env --add channels robostack-humble
 conda install -c conda-forge ros-dev-tools
-
 ```
 - You don't need to source ros in this environment. Test the environment by running - ros2 run rviz2 rviz2
 
@@ -74,7 +71,6 @@ mkdir ik_ws && cd ik_ws && git clone https://github.com/UNCW-Robotics-Foundation
 cd UNCW-G1-Humanoid-Robot
 colcon build --packages-select g1_msgs g1_ik
 source install/setup.bash
-
 ```
 - Test the ik solver - ros2 run g1_ik robot_arm_ik
 - There will probably still be a missing dependency, but it will be a python, so it should be installed using pip install. The terminal should output an error with a clue as to what needs to be installed. One potential one may be logging-mp.
