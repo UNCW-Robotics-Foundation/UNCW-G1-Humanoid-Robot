@@ -4,6 +4,7 @@
   <node pkg="robot_state_publisher" exec="robot_state_publisher" output="both">
     <param name="robot_description" value="$(var robot_description_content)" />    
   </node>
- <node pkg="rviz2" exec="rviz2" output="log" args="-d $(find-pkg-share g1_lower)/urdf/g1.rviz"/>
+  <node pkg="tf2_ros" exec="static_transform_publisher" args="--x 0.0 --y 0.0 --z 0.0 --roll 0 --pitch 0 --yaw 0 --frame-id d435_link --child-frame-id camera_link"/>
+ <node pkg="rviz2" exec="rviz2" output="log" args="-d $(find-pkg-share g1_lower)/urdf/g1_tele.rviz"/>
         
 </launch>
