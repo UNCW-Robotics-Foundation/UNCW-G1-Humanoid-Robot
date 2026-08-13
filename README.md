@@ -54,11 +54,11 @@ The rviz simulator will not work if the unitree package is sourced, and the robo
 The build command may display errors at the end, however, these should just be warnings. If you run colcon build again, and there isn't actually an error, it will show everything complete with no warning.
 
 ## IK Solver setup
-- Install the miniforge version of conda - [Link](https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html#hash-verification)
+- Install the miniforge version of conda - [Link](https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html#)
 - Install the [Robostack](https://robostack.github.io/conda.html) packages and [xr-teleoperate](https://github.com/unitreerobotics/xr_teleoperate) dependencies with these commands:
 ```
 conda config --env --remove channels defaults
-conda create -n ros_env -c conda-forge -c robostack-humble ros-humble-desktop  python=3.10 pinocchio=3.1.0 numpy=1.26.4
+conda create -n ros_env -c conda-forge -c robostack-humble ros-humble-desktop  python pinocchio numpy=1.26.4
 conda activate ros_env
 conda config --env --add channels robostack-humble
 conda install -c conda-forge ros-dev-tools
