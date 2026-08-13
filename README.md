@@ -6,21 +6,29 @@ Linux Ubuntu 22.04
 
 ## Initial Setup
 - Install Ros2 Humble
-- Follow all of the setup instructions for [this repository](https://github.com/unitreerobotics/unitree_ros2).
-- As long as the building steps in the other repository were successfull, and after being able to successfully connect to the robot, confirmed by seing the new topics in Ros2, this package should build correctly.
+- Additional Ros2 dependencies:
+```
+sudo apt install ros-humble-xacro ros-humble-joint-state-publisher ros-humble-joint-state-publisher-gui
+
+```
+- Install the [unitree_ros2](https://github.com/unitreerobotics/unitree_ros2) repository. You only need to install the cyclonedd_ws package. The examples are not necessary. Simplified instructions:
+```
+sudo apt install ros-humble-rmw-cyclonedds-cpp ros-humble-rosidl-generator-dds-idl libyaml-cpp-dev
+
+git clone https://github.com/unitreerobotics/unitree_ros2
+cd unitree_ros2/cyclonedds_ws
+source /opt/ros/humble/setup.bash
+colcon build 
+
+```  
+- If the package failed to build, refer to repository for potential troubleshooting
+- In order to see the Ros topics from the robot, follow the network configuration steps from the unitree_ros2 repo. Make sure to also change the ros source line from foxy to humble in the setup.sh files. If all of the steps were followed, and the topics are not showing up, a system restart should fix it.
 
 ### Sorce repos for Nav2 Simulator: 
 - [Livox-SDK2](https://github.com/Livox-SDK/Livox-SDK2) — follow install instructions on repo page
 - [livox_ros_driver2](https://github.com/Livox-SDK/livox_ros_driver2)
 - [FAST-LIO (ROS2 branch)](https://github.com/hku-mars/FAST_LIO) → branch ROS2
 
-## Required Dependencies
-```
-sudo apt install ros-humble-xacro
-sudo apt install ros-humble-joint-state-publisher
-sudo apt install ros-humble-joint-state-publisher-gui
-
-```
 ### Nav2 Simulator
 ```
 sudo apt install ros-humble-nav2-bringup 
@@ -42,9 +50,39 @@ colcon build
 source install/local_setup.bash
 ```
 
-Make sure to soure the unitree package before building since this package uses their message files.
+Make sure to source the unitree package before building since this package uses their message files.
 The generated build, install, and log folders are part of the gitignore. I believe you will need to source the package everytime when using a new terminal.
 The rviz simulator will not work if the unitree package is sourced, and the robot is not connected or turned off, but it will work if the robot is on.
+The build command may display errors at the end, however, these should just be warnings. If you run colcon build again, and there isn't actually an error, it will show everything complete with no warning.
+
+## IK Solver setup
+- Install the miniforge version of conda - [Link]([https://github.com/unitreerobotics/unitree_ros2](https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html#hash-verification)
+- Install the [Robostack](https://robostack.github.io/conda.html) packages and [xr-teleoperate](https://github.com/unitreerobotics/xr_teleoperate) dependencies with these commands:
+```
+conda config --env --remove channels defaults
+conda create -n ros_env -c conda-forge -c robostack-humble ros-humble-desktop  python=3.10 pinocchio=3.1.0 numpy=1.26.4
+conda activate ros_env
+conda config --env --add channels robostack-humble
+conda install -c conda-forge ros-dev-tools
+
+```
+- You don't need to source ros in this environment. Test the environment by running - ros2 run rviz2 rviz2
+
+- Next create a new workspace for the ik solver. There will be two instances of the UNCW repository, one outside the conda environment, and one inside. Make sure not to confuse the two. Make sure the conda environment is activated before installing and compiling the second copy of the repo and activated when developing with the ik package. Only the msgs and ik packages should be built in this environment, the other ones would require other dependencies and/or projects, but we are trying to keep the environment as minimal as possible.
+```
+mkdir ik_ws && cd ik_ws && git clone https://github.com/UNCW-Robotics-Foundation/UNCW-G1-Humanoid-Robot
+cd UNCW-G1-Humanoid-Robot
+colcon build --packages-select g1_msgs g1_ik
+source install/setup.bash
+
+```
+- Test the ik solver - ros2 run g1_ik robot_arm_ik
+- There will probably still be a missing dependency, but it will be a python, so it should be installed using pip install. The terminal should output an error with a clue as to what needs to be installed. One potential one may be logging-mp.
+- If the ik solver is working, it should output for a user input with the text:
+```
+Please enter the start signal (enter 's' to start the subsequent program):
+```
+- You should be able to run and start developing with the g1_ik_controller at this point.
 
 ### Nav2 Simulator Build
 ```
