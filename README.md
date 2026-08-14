@@ -119,6 +119,8 @@ In cafe.world, tables and other thin fixtures are viewed as "dynamic obstacles",
 
 See Real Nav2 Stack branch for full nav2 usage and instructions to run on the G1
 
+NOTE: Different branch needed due to differences in nav2 lowstate controller vs current lowstate controller and the fast_lio setup
+
 ## TODO
 
 ### Nav2 Stack: 
