@@ -115,6 +115,10 @@ Robot model will "glide" along the floor, this is intentional as bipedal simulat
 Failed to find match for field errors from fastlio mapping will show in run terminal for sim, these are harmless warnings, havent figured out a way to disable them unfortunately.   
 In cafe.world, tables and other thin fixtures are viewed as "dynamic obstacles", meaning they'll only be temporarily marked when approached. Plan will reajust when the robot approaches, but not permenately marked by global costmap 
 
+## Nav2 Real Implementation 
+
+See Real Nav2 Stack branch for full nav2 usage and instructions to run on the G1
+
 ## TODO
 
 ### Nav2 Stack: 
