@@ -62,6 +62,7 @@ conda create -n ros_env -c conda-forge -c robostack-humble ros-humble-desktop  p
 conda activate ros_env
 conda config --env --add channels robostack-humble
 conda install -c conda-forge ros-dev-tools
+pip install logging-mp
 ```
 - You don't need to source ros in this environment. Test the environment by running - ros2 run rviz2 rviz2
 
@@ -73,12 +74,12 @@ colcon build --packages-select g1_msgs g1_ik
 source install/setup.bash
 ```
 - Test the ik solver - ros2 run g1_ik robot_arm_ik
-- There will probably still be a missing dependency, but it will be a python, so it should be installed using pip install. The terminal should output an error with a clue as to what needs to be installed. One potential one may be logging-mp.
 - If the ik solver is working, it should output for a user input with the text:
 ```
 Please enter the start signal (enter 's' to start the subsequent program):
 ```
-- You should be able to run and start developing with the g1_ik_controller at this point.
+- You should be able to run and start developing with the g1_ik_controller at this point. If the ik solver did not display this message, then it may be an issue with a missing dependency.
+*** Conda may cause building errors outside of ros_env since it will probably auto activate base conda. To fix this, lookup the command to stop auto activating. If you accidentally build in the wrong environment, delete the build, install, and log folders, then try building again.
 
 ### Nav2 Simulator Build
 ```
