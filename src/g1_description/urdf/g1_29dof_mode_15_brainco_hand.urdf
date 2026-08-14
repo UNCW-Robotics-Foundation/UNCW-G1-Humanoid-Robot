@@ -536,7 +536,9 @@
   <!-- ===== MID360 LIDAR ===== -->
   <link name="mid360_link"/>
   <joint name="mid360_joint" type="fixed">
-    <origin xyz="0.0002835 0.00003 0.41618" rpy="0 0.04014257279586953 0"/>
+    <!-- Lidar pitch is 23 deg nose-down (0.4014 rad), NOT 2.3 deg: verified
+         against the head IMU gravity vector (x ~ -0.39 g while standing). -->
+    <origin xyz="0.0002835 0.00003 0.41618" rpy="0 0.4014257279586953 0"/>
     <parent link="torso_link"/>
     <child link="mid360_link"/>
   </joint>

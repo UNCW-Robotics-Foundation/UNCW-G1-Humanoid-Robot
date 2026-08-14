@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Environment setup for the Unitree G1 real-robot stack.
+#
+# This file lives OUTSIDE the workspace on the real machine (as ~/robot_setup.sh).
+# It is committed here only as a template. To use it:
+#
+#   cp robot_setup.sh.example ~/robot_setup.sh
+#   # then edit the NetworkInterface name below to match YOUR wired interface
+#   # (find it with:  ip a  )
+#
+# Source it in EVERY Unitree-related terminal before building or launching:
+#   source ~/robot_setup.sh
+
+source /opt/ros/humble/setup.bash
+source ~/unitree_ros2/cyclonedds_ws/install/setup.bash
+source ~/UNCW-G1-Humanoid-Robot/install/setup.bash
+
+# Unitree's bare-DDS topics run on domain 0; do not set a ROS_DOMAIN_ID.
+unset ROS_DOMAIN_ID
+
+# The Unitree stack requires CycloneDDS; keep this RMW, do not override it.
+export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+
+# Bind CycloneDDS to the WIRED interface to the robot. Change "enp5s0" to your
+# machine's interface name (see `ip a`).
+export CYCLONEDDS_URI='<CycloneDDS><Domain><General><Interfaces><NetworkInterface name="enp5s0" priority="default" multicast="default" /></Interfaces></General></Domain></CycloneDDS>'

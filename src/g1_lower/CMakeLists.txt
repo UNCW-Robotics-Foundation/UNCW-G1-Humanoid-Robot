@@ -118,6 +118,7 @@ install(TARGETS
 	loco_client_test
 	wireless_controller_test
 	g1_gesture_control
+	lowstate_jointstate_bridge
 	DESTINATION lib/${PROJECT_NAME})
 
 rosidl_generate_interfaces(${PROJECT_NAME}

@@ -76,18 +76,25 @@ class LowStateSuber : public rclcpp::Node {
             // suber is set to subscribe "/lowcmd" or  "lf/lowstate" (low frequencies)
             // topic
             const auto *topic_name = "lf/lowstate";
-            // The suber  callback function is bind to low_state_suber::topic_callback
+            // SensorDataQoS (best-effort) is compatible with either a
+            // reliable or best-effort publisher; the default reliable QoS
+            // receives NOTHING from Unitree's best-effort bare-DDS topics.
             suber_ = this->create_subscription<unitree_hg::msg::LowState>(
-                topic_name, 10,
+                topic_name, rclcpp::SensorDataQoS(),
                 [this](const unitree_hg::msg::LowState::SharedPtr data) {
                 LowStateHandler(data);
                 });
-            
+
             js_pub = this->create_publisher<sensor_msgs::msg::JointState>("joint_states", 10);
+            RCLCPP_INFO(this->get_logger(), "lowstate_jointstate_bridge up, waiting for %s...", topic_name);
         }
 
     private:
         void LowStateHandler(unitree_hg::msg::LowState::SharedPtr message) {
+            if (!received_first_) {
+                RCLCPP_INFO(this->get_logger(), "First lf/lowstate received — publishing /joint_states");
+                received_first_ = true;
+            }
             std::vector<_Float64> g1JointPos;
             sensor_msgs::msg::JointState js;
             
@@ -114,6 +121,7 @@ class LowStateSuber : public rclcpp::Node {
     
     rclcpp::Subscription<unitree_hg::msg::LowState>::SharedPtr suber_;
     rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr js_pub;
+    bool received_first_ = false;
 };
 
 int main(int argc, char *argv[]) {

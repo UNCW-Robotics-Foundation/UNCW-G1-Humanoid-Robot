@@ -1,0 +1,59 @@
+/**:
+    ros__parameters:
+        feature_extract_enable: false
+        point_filter_num: 3
+        max_iteration: 3
+        filter_size_surf: 0.5
+        filter_size_map: 0.5
+        cube_side_length: 1000.0
+        runtime_pos_log_enable: false
+        map_file_path: "./test.pcd"
+
+        common:
+            lid_topic:  "/utlidar/cloud_livox_mid360"
+            # Rectified (upright) IMU from imu_frameflip, NOT the raw
+            # inverted /utlidar/imu_livox_mid360.
+            imu_topic:  "/imu/upright"
+            time_sync_en: false
+            time_offset_lidar_to_imu: 0.0
+
+        preprocess:
+            lidar_type: 4
+            scan_line:  16
+            # 0.8 keeps the robot's own shoulders/swinging arms out of
+            # the scan matching (they sit 0.5-0.8 m from the head lidar).
+            blind: 0.8
+            timestamp_unit: 3
+            scan_rate: 10
+
+        mapping:
+            acc_cov: 0.1
+            gyr_cov: 0.1
+            b_acc_cov: 0.0001
+            b_gyr_cov: 0.0001
+            fov_degree:    360.0
+            det_range:     100.0
+            extrinsic_est_en:  false
+            # Lidar -> level body frame. Must match imu_frameflip:
+            # R = R_y(23 deg) * R_roll180 (the mount is inverted AND
+            # pitched 23 deg nose-down), T = R * T_raw where T_raw is
+            # Unitree's lidar-in-IMU offset [-0.011, -0.02329, 0.04412].
+            # (All values need decimal points — integer arrays crash
+            # FAST_LIO.)
+            extrinsic_T: [ -0.02736, 0.02329, -0.03631 ]
+            extrinsic_R: [ 0.92050,  0.0, -0.39073,
+                           0.0,     -1.0,  0.0,
+                          -0.39073,  0.0, -0.92050 ]
+
+        publish:
+            path_en: true
+            effect_map_en: false
+            map_en: true
+            scan_publish_en:  true
+            dense_publish_en: false
+            scan_bodyframe_pub_en: true
+
+        pcd_save:
+            # Off: the accumulated PCD grows unbounded during long runs.
+            pcd_save_en: false
+            interval: -1
