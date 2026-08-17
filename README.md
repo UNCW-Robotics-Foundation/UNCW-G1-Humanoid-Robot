@@ -43,7 +43,7 @@ sudo apt install libpcl-dev
 ## Build
 ```
 source ~/unitree_ros2/setup.sh
-cd ~/UNCW-G1-Robot
+cd ~/UNCW-G1-Humanoid-Robot
 colcon build
 source install/local_setup.bash
 ```
