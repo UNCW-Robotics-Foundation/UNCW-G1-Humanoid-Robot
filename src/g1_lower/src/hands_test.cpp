@@ -14,13 +14,24 @@
 #include "unitree_go/msg/motor_cmd.hpp"
 #include "unitree_go/msg/motor_states.hpp"
 #include "unitree_go/msg/motor_state.hpp"
+#include "sensor_msgs/msg/joint_state.hpp"
 
 using namespace std::chrono_literals;
+
+std::vector<std::string> FingerJointNames = {
+  "thumb",
+  "thumb_aux",
+  "index",
+  "middle",
+  "ring",
+  "pinky"
+};
 
 class HandsTest : public rclcpp::Node {
  public:
   HandsTest() : Node("hands_test_node") {
     pub_ = this->create_publisher<unitree_go::msg::MotorCmds>("/brainco/right/cmd", 10);
+    pub2_ = this->create_publisher<sensor_msgs::msg::JointState>("/joint_commands_right", 10);
     sub_ = this->create_subscription<unitree_go::msg::MotorStates>(
         "/brainco/right/state", 10,
         [this](const unitree_go::msg::MotorStates::SharedPtr msg) { StateCallback(msg); });
@@ -38,6 +49,7 @@ class HandsTest : public rclcpp::Node {
 
   private:
   rclcpp::Publisher<unitree_go::msg::MotorCmds>::SharedPtr pub_;
+  rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr pub2_;
   rclcpp::Subscription<unitree_go::msg::MotorStates>::SharedPtr sub_;
   rclcpp::Subscription<unitree_go::msg::MotorStates>::SharedPtr touch_sub_;
   rclcpp::TimerBase::SharedPtr timer1_;
@@ -45,6 +57,8 @@ class HandsTest : public rclcpp::Node {
   unitree_go::msg::MotorStates current_state;
   unitree_go::msg::MotorStates touch_state;
   std::array<float, 6> positions;
+  std::vector<double> positions2;
+  std::vector<double> speeds;
   std::array<float,6> current_pos{}; 
   std::array<float,5> current_touch{}; 
 
@@ -54,7 +68,7 @@ class HandsTest : public rclcpp::Node {
   bool state_received_ = false;
   bool touch_state_received_ = false;
   bool touch_flag = false;
-  int test = 2;
+  int test = 0;
 
   void StateCallback(const unitree_go::msg::MotorStates::SharedPtr msg) {
     current_state = *msg;
@@ -91,6 +105,8 @@ class HandsTest : public rclcpp::Node {
   void ControlLoop() {
     std::vector<unitree_go::msg::MotorCmd> tmpCommands;
     unitree_go::msg::MotorCmds handCmds;
+    sensor_msgs::msg::JointState handCmds2;
+    handCmds2.name = FingerJointNames;
     std::array<float, 6> target {1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
     std::array<float, 6> current = current_pos;
     const std::array<float, 6> initial = current;
@@ -105,6 +121,8 @@ class HandsTest : public rclcpp::Node {
           tmpCommands.clear();
           RCLCPP_INFO(this->get_logger(), "Opening hand...");
           positions = {0, 0, 0, 0, 0, 0};
+          positions2 = {0, 0, 0, 0, 0, 0};
+          speeds = {10, 10, 10, 10, 10, 10};
           for (int i = 0; i < 6; i++) {
               unitree_go::msg::MotorCmd handCmd;
               handCmd.q = positions[i];
@@ -117,9 +135,16 @@ class HandsTest : public rclcpp::Node {
           }
           handCmds.cmds = tmpCommands;
           pub_->publish(handCmds);
+
+          handCmds2.header.stamp = this->get_clock()->now();
+          handCmds2.position = positions2;
+          handCmds2.velocity = speeds;
+          pub2_->publish(handCmds2);
           std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+
           RCLCPP_INFO(this->get_logger(), "Closing fingers...");
           positions = {0, 1, 1, 1, 1, 1};
+          positions2 = {0, 10, 10, 10, 10, 10};
           for (int i = 0; i < 6; i++) {
               unitree_go::msg::MotorCmd handCmd;
               handCmd.q = positions[i];
@@ -132,9 +157,16 @@ class HandsTest : public rclcpp::Node {
           }
           handCmds.cmds = tmpCommands;
           pub_->publish(handCmds);
+
+          handCmds2.header.stamp = this->get_clock()->now();
+          handCmds2.position = positions2;
+          handCmds2.velocity = speeds;
+          pub2_->publish(handCmds2);
           std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+
           RCLCPP_INFO(this->get_logger(), "Closing thumb...");
           positions = {1, 1, 1, 1, 1, 1};
+          positions2 = {10, 10, 10, 10, 10, 10};
           for (int i = 0; i < 6; i++) {
               unitree_go::msg::MotorCmd handCmd;
               handCmd.q = positions[i];
@@ -147,6 +179,11 @@ class HandsTest : public rclcpp::Node {
           }
           handCmds.cmds = tmpCommands;
           pub_->publish(handCmds);
+
+          handCmds2.header.stamp = this->get_clock()->now();
+          handCmds2.position = positions2;
+          handCmds2.velocity = speeds;
+          pub2_->publish(handCmds2);
           std::this_thread::sleep_for(std::chrono::milliseconds(1000));
         }
         break;
