@@ -44,6 +44,9 @@ sudo apt install libpcl-dev
 ```
 source ~/unitree_ros2/setup.sh
 cd ~/UNCW-G1-Humanoid-Robot
+bash download-lib.sh
+cd src/ros2_stark_controller && mkdir lib && cd -
+cp dist/shared/linux/libbc_stark_sdk.so src/ros2_stark_controller/lib/
 colcon build
 source install/local_setup.bash
 ```
