@@ -2,6 +2,7 @@ import rclpy
 from rclpy.node import Node
 from g1_msgs.msg import ArmStates
 from g1_msgs.msg import MotorState
+from g1_msgs.msg import DebugData
 from tf2_ros.transform_listener import TransformListener
 from tf2_ros.buffer import Buffer
 from tf2_ros import TransformException
@@ -34,11 +35,16 @@ class MinimalSubscriber(Node):
                     'ik_sol',
                     10)
         self.ik_pub
+        self.debug_pub = self.create_publisher(
+                    DebugData,
+                    'ik_debug',
+                    10)
+        self.debug_pub
 
         self.matrix = np.array([
-            [0.993, -0.014, 0.119, 0.191 + 0.06],
-            [0.014, 1.0, 0.007, 0.151 + 0.037],
-            [-0.119, -0.005, 0.993, 0.073 - 0.2],
+            [0.993, -0.014, 0.119, 0.191],
+            [0.014, 1.0, 0.007, 0.151],
+            [-0.119, -0.005, 0.993, 0.073],
             [0.0, 0.0, 0.0, 1.0]
         ])
         # self.matrix = np.array([
@@ -108,32 +114,14 @@ class MinimalSubscriber(Node):
 
     def on_timer(self):
         try:
-            #if self.count < 1:
-            if self.count > 1:
-                t = self.tf_buffer.lookup_transform(
-                    'world',
-                    'target',
-                    rclpy.time.Time())
-                self.get_logger().info('found transform')
-                # self.matrix = np.array([
-                # [1.0, 0.0, 0.0, t.transform.translation.x],
-                # [0.0, 1.0, 0.0, t.transform.translation.y],
-                # [0.0, 0.0, 1.0, t.transform.translation.z],
-                # [0.0, 0.0, 0.0, 1.0]
-                # ])
-                # self.matrix = np.array([
-                #             [0.138, 0.261, 0.955, 0.094 + t.transform.translation.x],
-                #             [-0.007, 0.965, -0.262, 0.114 + t.transform.translation.y],
-                #             [-0.990, 0.029, 0.135, -0.077 + t.transform.translation.z],
-                #             [0.0, 0.0, 0.0, 1.0]
-                # ])
-                #self.matrix = self.matrix_default
-                self.frame_flag = True
-                self.count += 1
+            t = self.tf_buffer.lookup_transform(
+                'pelvis',
+                'left_wrist_yaw_link',
+                rclpy.time.Time())
 
-            #if self.frame_flag and self.robot_flag:
             if self.robot_flag:
-                sol_q, sol_tauff  = self.arm_ik.solve_ik(self.matrix, self.matrix_default, np.array([ joint.q for joint in self.current_arms.motor_states]), np.array([ joint.dq for joint in self.current_arms.motor_states]))
+                #sol_q, sol_tauff  = self.arm_ik.solve_ik(self.matrix, self.matrix_default, np.array([ joint.q for joint in self.current_arms.motor_states]), np.array([ joint.dq for joint in self.current_arms.motor_states]))
+                sol_q, sol_tauff  = self.arm_ik.solve_ik(self.matrix, self.matrix_default, np.array([ joint.q for joint in self.current_arms.motor_states]), np.array([ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]))
                 new_arms = ArmStates()
                 tmp_arms = []
                 for i in range(14):
@@ -148,9 +136,17 @@ class MinimalSubscriber(Node):
 
         except TransformException as ex:
             self.get_logger().info(
-                f'Could not transform {'test'} to {'left_hand_ref'}: {ex}')
+                f'Could not transform {'left_wrist_yaw_link'} to {'pelvis'}: {ex}')
             return
 
+        dbgData = DebugData()
+        dbgData.target_x = self.matrix[0, 3]
+        dbgData.target_y = self.matrix[1, 3]
+        dbgData.target_z = self.matrix[2, 3]
+        dbgData._actual_x = t.transform.translation.x
+        dbgData._actual_y = t.transform.translation.y
+        dbgData._actual_z = t.transform.translation.z
+        self.debug_pub.publish(dbgData)
 
 def main(args=None):
     rclpy.init(args=args)
