@@ -135,6 +135,8 @@ const std::array<float, 29> Kd{
   bool once_flag = true;
   bool js_once_flag = true;
 
+  float move_duration_ = 3.0F;
+
   void StateCallback(const LowState::SharedPtr msg) {
     last_state_ = *msg;
 
@@ -171,8 +173,10 @@ const std::array<float, 29> Kd{
     ik_sol = *msg;
 
     LowCmd cmd;
-    new_js.position = initial_js.position;
-    new_js.name = initial_js.name;
+    //cmd.mode_pr = 0;
+    //cmd.mode_machine = 5;
+    // new_js.position = initial_js.position;
+    // new_js.name = initial_js.name;
 
     // if (state_received_) {
     //   return;
@@ -181,14 +185,14 @@ const std::array<float, 29> Kd{
       cmd.motor_cmd[i].q = ik_sol.motor_states[i-15].q;
       cmd.motor_cmd[i].dq = 0.0F;
       cmd.motor_cmd[i].tau = 0.0F;
-      cmd.motor_cmd[i].mode = 1;
+      //cmd.motor_cmd[i].mode = 1;
       cmd.motor_cmd[i].kp = Kp[i];
       cmd.motor_cmd[i].kd = Kd[i];
-      if (i - 15 < 7) {
-        new_js.position[i] = ik_sol.motor_states[i-15].q;
-      } else {
-        new_js.position[i + 16] = ik_sol.motor_states[i-15].q;
-      }
+      // if (i - 15 < 7) {
+      //   new_js.position[i] = ik_sol.motor_states[i-15].q;
+      // } else {
+      //   new_js.position[i + 16] = ik_sol.motor_states[i-15].q;
+      // }
     }
     cmd.motor_cmd[29].q = 1.0F;
     //new_js.header.stamp = this->get_clock()->now();
@@ -227,7 +231,7 @@ const std::array<float, 29> Kd{
 
     if (!js_once_flag) {
       new_js.header.stamp = this->get_clock()->now();
-      rviz_pub_->publish(new_js);
+      // rviz_pub_->publish(new_js);
     }
   }
 
@@ -276,18 +280,23 @@ const std::array<float, 29> Kd{
       btn_flag = true;
     }
     else if (message->buttons[1] == 1) {   // B
-      LowCmd cmd;
-      for (int i = 0; i < 29; ++i) {
-        cmd.motor_cmd[i].q = 0.0F;
-        cmd.motor_cmd[i].dq = 0.0F;
-        cmd.motor_cmd[i].tau = 0.0F;
-        cmd.motor_cmd[i].kp = Kp[i];
-        cmd.motor_cmd[i].kd = Kd[i];
-        cmd.motor_cmd[i].mode = 1;
-      }
-      cmd.motor_cmd[29].q = 1.0F;
+      // LowCmd cmd;
+      // for (int i = 0; i < 29; ++i) {
+      //   cmd.motor_cmd[i].q = 0.0F;
+      //   cmd.motor_cmd[i].dq = 0.0F;
+      //   cmd.motor_cmd[i].tau = 0.0F;
+      //   cmd.motor_cmd[i].kp = Kp[i];
+      //   cmd.motor_cmd[i].kd = Kd[i];
+      //   cmd.motor_cmd[i].mode = 1;
+      // }
+      // cmd.motor_cmd[29].q = 1.0F;
 
-      cmd_pub_->publish(cmd);
+      // cmd_pub_->publish(cmd);
+      std::array<float, NUM_ARM_JOINTS> current_lowstate_arms;
+      for (int i = 15; i < 29; i++) {
+        current_lowstate_arms[i-15] = last_state_.motor_state[i].q;
+      }
+      MoveToFinal({0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, current_lowstate_arms, 3.0F);
       RCLCPP_INFO(this->get_logger(), "Robot Initialized");
 
       //sensor_msgs::msg::JointState new_js;
@@ -320,19 +329,64 @@ const std::array<float, 29> Kd{
     //   cmd_pub_->publish(cmd);
     //   //RCLCPP_INFO(this->get_logger(), "Robot Initialized");
     // }
+    // LowCmd cmd;
+    // for (int i = 0; i < 29; ++i) {
+    //   cmd.motor_cmd[i].q = 0.0F;
+    //   cmd.motor_cmd[i].dq = 0.0F;
+    //   cmd.motor_cmd[i].tau = 0.0F;
+    //   cmd.motor_cmd[i].kp = Kp[i];
+    //   cmd.motor_cmd[i].kd = Kd[i];
+    //   cmd.motor_cmd[i].mode = 1;
+    // }
+    // cmd.motor_cmd[29].q = 1.0F;
+
+    // cmd_pub_->publish(cmd);
+
+    std::array<float, NUM_ARM_JOINTS> current_lowstate_arms;
+    for (int i = 15; i < 29; i++) {
+      current_lowstate_arms[i-15] = last_state_.motor_state[i].q;
+    }
+    MoveToFinal({0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, current_lowstate_arms, 3.0F);
+
+    RCLCPP_INFO(this->get_logger(), "Robot Initialized");
+  }
+
+  // Same as function above without e_stop or last_move flags
+  void MoveToFinal(const std::array<float, NUM_ARM_JOINTS>& target,
+              std::array<float, NUM_ARM_JOINTS>& current, float duration) {
+    const int steps = static_cast<int>(duration / control_dt_);
+    const std::array<float, NUM_ARM_JOINTS> initial = current;
+
+    for (int i = 0; i < steps; ++i) {
+      for (size_t j = 0; j < arm_joints_.size(); ++j) {
+          // linear interpolation
+        current[j] = ((i * (target[j] - initial[j])) / steps) + initial[j];
+      }
+
+      SendPositionCommand(current);
+      std::this_thread::sleep_for(sleep_time_);
+    }
+  }
+
+  /*
+  Helper function for MoveTo function. Very similar to control function.
+  */
+  void SendPositionCommand(const std::array<float, NUM_ARM_JOINTS>& positions) {
     LowCmd cmd;
-    for (int i = 0; i < 29; ++i) {
-      cmd.motor_cmd[i].q = 0.0F;
+
+    for (size_t i = 15; i < 29; ++i) {
+      //int idx = static_cast<int>(arm_joints_[i]);
+      cmd.motor_cmd[i].q = positions[i-15];
       cmd.motor_cmd[i].dq = 0.0F;
       cmd.motor_cmd[i].tau = 0.0F;
+      //cmd.motor_cmd[i].mode = 1;
       cmd.motor_cmd[i].kp = Kp[i];
       cmd.motor_cmd[i].kd = Kd[i];
-      cmd.motor_cmd[i].mode = 1;
     }
-    cmd.motor_cmd[29].q = 1.0F;
+
+    cmd.motor_cmd[static_cast<int>(NOT_USED_JOINT)].q = 1.0F;
 
     cmd_pub_->publish(cmd);
-    RCLCPP_INFO(this->get_logger(), "Robot Initialized");
   }
 
 };
