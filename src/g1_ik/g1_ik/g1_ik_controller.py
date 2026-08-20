@@ -12,6 +12,9 @@ from sensor_msgs.msg import Joy
 import logging_mp
 logger_mp = logging_mp.getLogger(__name__)
 
+initial_x = 0.207
+initial_y = 0.129
+initial_z = 0.067
 
 class MinimalSubscriber(Node):
 
@@ -42,9 +45,9 @@ class MinimalSubscriber(Node):
         self.debug_pub
 
         self.matrix = np.array([
-            [0.993, -0.014, 0.119, 0.191],
-            [0.014, 1.0, 0.007, 0.151],
-            [-0.119, -0.005, 0.993, 0.073],
+            [0.984, 0.091, 0.156, initial_x],
+            [-0.090, 0.996, -0.014, initial_y],
+            [-0.156, 0.000, 0.988, initial_z],
             [0.0, 0.0, 0.0, 1.0]
         ])
         # self.matrix = np.array([
@@ -54,9 +57,9 @@ class MinimalSubscriber(Node):
         #     [0.0, 0.0, 0.0, 1.0]
         # ])
         self.matrix_default = np.array([
-            [0.993, 0.008, 0.119, 0.192],
-            [-0.008, 1.0, 0.0, -0.148],
-            [-0.119, -0.001, 0.993, 0.075],
+            [0.982, 0.108, 0.155, 0.177],
+            [-0.105, 0.994, -0.024, -0.168],
+            [-0.157, 0.007, 0.988, 0.066],
             [0.0, 0.0, 0.0, 1.0]
         ])
         self.count = 0
@@ -98,16 +101,21 @@ class MinimalSubscriber(Node):
             self.matrix[0, 3] += -0.01
             self.btn_flag = True
         elif (msg.buttons[13] == 1):   # d-pad left
-            self.matrix[2, 3] += 0.01
-            self.btn_flag = True
-        elif (msg.buttons[14] == 1):   # d-pad right
-            self.matrix[2, 3] += -0.01
-            self.btn_flag = True
-        elif (msg.buttons[0] == 1):   # A
             self.matrix[1, 3] += 0.01
             self.btn_flag = True
-        elif (msg.buttons[3] == 1):   # Y
+        elif (msg.buttons[14] == 1):   # d-pad right
             self.matrix[1, 3] += -0.01
+            self.btn_flag = True
+        elif (msg.buttons[0] == 1):   # A
+            self.matrix[2, 3] += -0.01
+            self.btn_flag = True
+        elif (msg.buttons[3] == 1):   # Y
+            self.matrix[2, 3] += 0.01
+            self.btn_flag = True
+        elif (msg.buttons[1] == 1):   # B
+            self.matrix[0, 3] = initial_x
+            self.matrix[1, 3] = initial_y
+            self.matrix[2, 3] = initial_z
             self.btn_flag = True
         else:
             return
