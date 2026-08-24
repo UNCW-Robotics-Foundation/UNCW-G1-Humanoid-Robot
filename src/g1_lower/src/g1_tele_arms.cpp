@@ -59,8 +59,8 @@ const std::array<float, 29> Kd{
  public:
   ArmLowLevelController() : Node("arm_lowlevel_controller") {
     // ROS2接口初始化
-    //cmd_pub_ = this->create_publisher<LowCmd>("/arm_sdk", 10);
-    cmd_pub_ = this->create_publisher<LowCmd>("/lowcmd", 10);
+    cmd_pub_ = this->create_publisher<LowCmd>("/arm_sdk", 10);
+    //cmd_pub_ = this->create_publisher<LowCmd>("/lowcmd", 10);
     arm_joints_pub_ = this->create_publisher<g1_msgs::msg::ArmStates>("/arm_joints", 10);
     lowstate_sub_ = this->create_subscription<LowState>(
         "/lowstate", 10,
@@ -120,11 +120,15 @@ const std::array<float, 29> Kd{
   bool btn_flag = false;
   bool init_flag = false;
   bool busy_flag = false;
+  bool state_flag = false;
+  bool stop_flag = false;
+  bool ik_pub_flag = false;
 
   float move_duration_ = 3.0F;
 
   void StateCallback(const LowState::SharedPtr msg) {
     last_state_ = *msg;
+    state_flag = true;
 
     g1_msgs::msg::ArmStates current_arms;
     for (size_t i = 0; i < arm_joints_.size(); ++i) {
@@ -154,9 +158,17 @@ const std::array<float, 29> Kd{
       cmd.motor_cmd[i].kp = Kp[i];
       cmd.motor_cmd[i].kd = Kd[i];
     }
+    for (int i = 12; i < 15; i++) {
+      cmd.motor_cmd[i].q = 0.0F;
+      cmd.motor_cmd[i].dq = 0.0F;
+      cmd.motor_cmd[i].tau = 0.0F;
+      //cmd.motor_cmd[i].mode = 1;
+      cmd.motor_cmd[i].kp = Kp[i] * 4.0F;
+      cmd.motor_cmd[i].kd = Kd[i] * 4.0F;
+    }
     cmd.motor_cmd[29].q = 1.0F;
 
-    if (!busy_flag) {
+    if ((!busy_flag) && (ik_pub_flag)) {
       cmd_pub_->publish(cmd);
     }
     //cmd_pub_->publish(cmd);
@@ -208,14 +220,18 @@ const std::array<float, 29> Kd{
       btn_flag = true;
     }
     else if (message->buttons[1] == 1) {   // B
-      // std::array<float, NUM_ARM_JOINTS> current_lowstate_arms;
-      // for (int i = 15; i < 29; i++) {
-      //   current_lowstate_arms[i-15] = last_state_.motor_state[i].q;
-      // }
-      // MoveToInitial({0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, current_lowstate_arms, 3.0F);
-      // RCLCPP_INFO(this->get_logger(), "Robot Initialized");
-      init_flag = true;
-      busy_flag = true;
+      if (!busy_flag){
+        init_flag = true;
+        busy_flag = true;
+      }
+
+      btn_flag = true;
+    }
+    else if (message->buttons[2] == 1) {   // X
+      if (!busy_flag){
+        stop_flag = true;
+        busy_flag = true;
+      }
 
       btn_flag = true;
     }
@@ -223,35 +239,58 @@ const std::array<float, 29> Kd{
   }
 
   void InitRobot() {
+    while (!state_flag) {
+      std::this_thread::sleep_for(sleep_time_);
+    }
     std::this_thread::sleep_for(sleep_time_);
 
-    std::array<float, NUM_ARM_JOINTS> current_lowstate_arms;
-    for (int i = 15; i < 29; i++) {
-      current_lowstate_arms[i-15] = last_state_.motor_state[i].q;
+    unitree_hg::msg::LowState initial_state = last_state_;
+    std::array<float, 17> target_initial;
+
+    std::array<float, 17> current_lowstate_arms;
+    for (int i = 12; i < 29; i++) {
+      current_lowstate_arms[i-12] = last_state_.motor_state[i].q;
+      target_initial[i-12] = last_state_.motor_state[i].q;
     }
-    MoveToInitial({0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, current_lowstate_arms, 3.0F);
+    MoveToInitial({0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, current_lowstate_arms, 3.0F);
     RCLCPP_INFO(this->get_logger(), "Robot Initialized");
+    ik_pub_flag = true;
 
     while (true) {
       if (init_flag) {
-        for (int i = 15; i < 29; i++) {
-          current_lowstate_arms[i-15] = last_state_.motor_state[i].q;
+        for (int i = 12; i < 29; i++) {
+          current_lowstate_arms[i-12] = last_state_.motor_state[i].q;
         }
-        MoveToInitial({0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, current_lowstate_arms, 3.0F);
+        MoveToInitial({0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, current_lowstate_arms, 3.0F);
         init_flag = false;
         busy_flag = false;
         RCLCPP_INFO(this->get_logger(), "Robot Initialized");
+        ik_pub_flag = true;
+      }
+
+      if (stop_flag) {
+        ik_pub_flag = false;
+        for (int i = 12; i < 29; i++) {
+          current_lowstate_arms[i-12] = last_state_.motor_state[i].q;
+        }
+        MoveToInitial(target_initial, current_lowstate_arms, 3.0F);
+        LowCmd cmd;
+        cmd.motor_cmd[static_cast<int>(NOT_USED_JOINT)].q = 0.0F;
+        cmd_pub_->publish(cmd);
+        stop_flag = false;
+        busy_flag = false;
+        RCLCPP_INFO(this->get_logger(), "Robot Stopped");
       }
     }
   }
 
-  void MoveToInitial(const std::array<float, NUM_ARM_JOINTS>& target,
-              std::array<float, NUM_ARM_JOINTS>& current, float duration) {
+  void MoveToInitial(const std::array<float, 17>& target,
+              std::array<float, 17>& current, float duration) {
     const int steps = static_cast<int>(duration / control_dt_);
-    const std::array<float, NUM_ARM_JOINTS> initial = current;
+    const std::array<float, 17> initial = current;
 
     for (int i = 0; i < steps; ++i) {
-      for (size_t j = 0; j < arm_joints_.size(); ++j) {
+      for (size_t j = 0; j < 17; ++j) {
           // linear interpolation
         current[j] = ((i * (target[j] - initial[j])) / steps) + initial[j];
       }
@@ -264,17 +303,23 @@ const std::array<float, 29> Kd{
   /*
   Helper function for MoveTo function. Very similar to control function.
   */
-  void SendPositionCommand(const std::array<float, NUM_ARM_JOINTS>& positions) {
+  void SendPositionCommand(const std::array<float, 17>& positions) {
     LowCmd cmd;
 
-    for (size_t i = 15; i < 29; ++i) {
+    for (size_t i = 12; i < 29; ++i) {
       //int idx = static_cast<int>(arm_joints_[i]);
-      cmd.motor_cmd[i].q = positions[i-15];
+      cmd.motor_cmd[i].q = positions[i-12];
       cmd.motor_cmd[i].dq = 0.0F;
       cmd.motor_cmd[i].tau = 0.0F;
       //cmd.motor_cmd[i].mode = 1;
-      cmd.motor_cmd[i].kp = Kp[i];
-      cmd.motor_cmd[i].kd = Kd[i];
+      if (i >= 15) {
+        cmd.motor_cmd[i].kp = Kp[i];
+        cmd.motor_cmd[i].kd = Kd[i];
+      } else {
+        cmd.motor_cmd[i].kp = Kp[i] * 4.0f;
+        cmd.motor_cmd[i].kd = Kd[i] * 4.0f;
+      }
+
     }
 
     cmd.motor_cmd[static_cast<int>(NOT_USED_JOINT)].q = 1.0F;
