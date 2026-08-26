@@ -1,21 +1,7 @@
-from PyQt6 import QtCore, QtGui, QtWidgets
+from PyQt6 import QtCore, QtWidgets
 from PyQt6.QtCore import Qt
 
-# class SliderContainer(QtWidgets.QWidget):
-
-#     def __init__(self, joints, *args, **kwargs):
-#             super().__init__(*args, **kwargs)
-
-#             layout = QtWidgets.QVBoxLayout()
-
-#             self.current_values = []
-#             self.joint_list = joints
-#             for joint in self.joint_list:
-#                 self.current_values.append(0.0)
-#                 layout.addWidget(JointSlider(jName=joint[0], maximum=joint[1], minimum=joint[2]))
-
-#             self.setLayout(layout)
-
+# Removes ability to move slider with mousewheel
 class CustomSlider(QtWidgets.QSlider):
     def wheelEvent(self, e):
         e.ignore()
@@ -39,7 +25,6 @@ class JointSlider(QtWidgets.QWidget):
         self.middle_distance = ((self.minimum * -1) + self.maximum) / 2
 
         layout_main = QtWidgets.QVBoxLayout()
-        #layout_current = QtWidgets.QHBoxLayout()
         layout_bar = QtWidgets.QHBoxLayout()
 
         self.name_label = QtWidgets.QLabel(jName)
@@ -52,13 +37,11 @@ class JointSlider(QtWidgets.QWidget):
 
         self.slider.setMaximum(maximum)
         self.slider.setMinimum(minimum)
-        self.slider.setSingleStep(0)
-        self.slider.setPageStep(0)
+        self.slider.setSingleStep(0)    # Removes ability to move slider with keyboard arrows
+        self.slider.setPageStep(0)      # Removes ability to move slider when clicking left or right of slider
         self.slider.sliderMoved.connect(self.slider_moved)
 
         layout_main.addWidget(self.name_label, alignment=Qt.AlignmentFlag.AlignCenter)
-        #layout_main.addLayout(layout_current)
-        #layout_current.addWidget(self.current_label)
         layout_main.addWidget(self.current_label)
         layout_main.addLayout(layout_bar)
         layout_bar.addWidget(self.min_label)
@@ -67,6 +50,10 @@ class JointSlider(QtWidgets.QWidget):
 
         self.setLayout(layout_main)
 
+    '''
+    Updates the value of the current label, moves the current label to match the position of the slider, and
+    emits a signal with the custom widget's id value and current slider value.
+    '''
     def slider_moved(self, x):
         self.current_val = x * .001
         self.current_label.setStyleSheet(" padding-left:" + str(((self.current_val - self.middle_value) / (self.middle_distance)) * 110 + 120) + "px ")
