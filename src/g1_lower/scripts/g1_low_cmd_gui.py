@@ -88,7 +88,7 @@ class LowCmdGui(QMainWindow):
     function everytime it activates
     '''
     def update_cmd(self, x):
-           self.low_cmd_gui_ros_node.cmds.motor_cmd[x[0]].q = x[1]
+           self.low_cmd_gui_ros_node.cmd.motor_cmd[x[0]].q = x[1]
 
     '''
     This replaces the closeEvent function from a QMainWindow. I'm pretty sure this is just a signal,

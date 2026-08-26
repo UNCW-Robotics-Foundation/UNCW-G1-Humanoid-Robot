@@ -70,6 +70,9 @@ ament_target_dependencies(g1_arms_txt ${DEPENDENCY_LIST})
 add_executable(g1_gesture_control src/g1_gesture_control.cpp)
 ament_target_dependencies(g1_gesture_control ${DEPENDENCY_LIST})
 
+add_executable(g1_gui_joints_cmd src/g1_gui_joints_cmd.cpp src/common/motor_crc_hg.cpp)
+ament_target_dependencies(g1_gui_joints_cmd ${DEPENDENCY_LIST})
+
 add_executable(g1_lowcmd_listener src/g1_lowcmd_listener.cpp src/common/motor_crc_hg.cpp)
 ament_target_dependencies(g1_lowcmd_listener ${DEPENDENCY_LIST})
 
@@ -110,6 +113,7 @@ install(TARGETS g1_ankle_swing_example)
 install(TARGETS g1_arms_test)
 install(TARGETS g1_arms_txt)
 install(TARGETS g1_gesture_control)
+install(TARGETS g1_gui_joints_cmd)
 install(TARGETS g1_lowcmd_listener)
 install(TARGETS g1_lowcmd_test)
 install(TARGETS g1_tele_arms)
