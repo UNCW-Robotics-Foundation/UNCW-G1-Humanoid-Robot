@@ -151,9 +151,17 @@ class MinimalSubscriber(Node):
         dbgData.target_x = self.matrix[0, 3]
         dbgData.target_y = self.matrix[1, 3]
         dbgData.target_z = self.matrix[2, 3]
+        dbgData.target_rx = 0.0035137;
+        dbgData.target_ry = 0.0783057;
+        dbgData.target_rz = -0.0454273;
+        dbgData.target_rw = 0.9958877;
         dbgData._actual_x = t.transform.translation.x
         dbgData._actual_y = t.transform.translation.y
         dbgData._actual_z = t.transform.translation.z
+        dbgData._actual_rx = t.transform.rotation.x
+        dbgData._actual_ry = t.transform.rotation.y
+        dbgData._actual_rz = t.transform.rotation.z
+        dbgData._actual_rw = t.transform.rotation.w
         self.debug_pub.publish(dbgData)
 
 def main(args=None):
