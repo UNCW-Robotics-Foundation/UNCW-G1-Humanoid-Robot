@@ -16,6 +16,24 @@ update in real time. Only changes the joint position (q). Maximums and minimums 
 the urdf, but they are ~0.1 less than what is actually stated in the urdf.
 
 '''
+link_names = [                 # Manually setting joint names, maximums, and minimums
+                    "left_shoulder_pitch_link",
+                    "left_shoulder_roll_link",
+                    "left_shoulder_yaw_link",
+                    "left_elbow_link",
+                    "left_wrist_roll_link",
+                    "left_wrist_pitch_link", 
+                    "left_wrist_yaw_link",
+                    "right_shoulder_pitch_link",
+                    "right_shoulder_roll_link",
+                    "right_shoulder_yaw_link",
+                    "right_elbow_link",
+                    "right_wrist_roll_link",
+                    "right_wrist_pitch_link",
+                    "right_wrist_yaw_link"
+                ]
+link_rpy = [1, 0, 2, 1, 0, 1, 2, 1, 0, 2, 1, 0, 1, 2]
+
 class LowCmdGui(QMainWindow):
     def __init__(self, low_cmd_gui_ros_node):
         super().__init__()
@@ -88,7 +106,19 @@ class LowCmdGui(QMainWindow):
     function everytime it activates
     '''
     def update_cmd(self, x):
-           self.low_cmd_gui_ros_node.cmd.motor_cmd[x[0]].q = x[1]
+           slider_id = x[0]
+           slider_value = x[1]
+           adjusted_id = slider_id - 15
+           self.low_cmd_gui_ros_node.cmd.motor_cmd[slider_id].q = slider_value
+
+           if slider_id >= 15:
+                self.low_cmd_gui_ros_node.motor = slider_id
+                self.low_cmd_gui_ros_node.rpy = link_rpy[adjusted_id]
+                self.low_cmd_gui_ros_node.from_frame = link_names[adjusted_id]
+                if (slider_id == 15) or (slider_id == 22):
+                     self.low_cmd_gui_ros_node.to_frame = "torso_link"
+                else :
+                     self.low_cmd_gui_ros_node.to_frame = link_names[adjusted_id - 1]
 
     '''
     This replaces the closeEvent function from a QMainWindow. I'm pretty sure this is just a signal,
