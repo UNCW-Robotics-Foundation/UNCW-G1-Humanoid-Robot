@@ -144,25 +144,41 @@ class MinimalSubscriber(Node):
 
         except TransformException as ex:
             self.get_logger().info(
-                f'Could not transform {'left_wrist_yaw_link'} to {'pelvis'}: {ex}')
+                f'Could not find transform: {ex}')
             return
 
         dbgData = DebugData()
-        dbgData.target_x = self.matrix[0, 3]
-        dbgData.target_y = self.matrix[1, 3]
-        dbgData.target_z = self.matrix[2, 3]
-        dbgData.target_rx = 0.0035137;
-        dbgData.target_ry = 0.0783057;
-        dbgData.target_rz = -0.0454273;
-        dbgData.target_rw = 0.9958877;
-        dbgData._actual_x = t.transform.translation.x
-        dbgData._actual_y = t.transform.translation.y
-        dbgData._actual_z = t.transform.translation.z
-        dbgData._actual_rx = t.transform.rotation.x
-        dbgData._actual_ry = t.transform.rotation.y
-        dbgData._actual_rz = t.transform.rotation.z
-        dbgData._actual_rw = t.transform.rotation.w
+        dbgData.target_tx = self.matrix[0, 3]
+        dbgData.target_ty = self.matrix[1, 3]
+        dbgData.target_tz = self.matrix[2, 3]
+        dbgData.target_qx = 0.0035137;
+        dbgData.target_qy = 0.0783057;
+        dbgData.target_qz = -0.0454273;
+        dbgData.target_qw = 0.9958877;
+
+        dbgData.actual_tx = t.transform.translation.x
+        dbgData.actual_ty = t.transform.translation.y
+        dbgData.actual_tz = t.transform.translation.z
+        dbgData.actual_qx = t.transform.rotation.x
+        dbgData.actual_qy = t.transform.rotation.y
+        dbgData.actual_qz = t.transform.rotation.z
+        dbgData.actual_qw = t.transform.rotation.w
+
+        dbgData.delta_tx = self.abs_helper(dbgData.target_tx, dbgData.actual_tx)
+        dbgData.delta_ty = self.abs_helper(dbgData.target_ty, dbgData.actual_ty)
+        dbgData.delta_tz = self.abs_helper(dbgData.target_tz, dbgData.actual_tz)
+        dbgData.delta_qx = self.abs_helper(dbgData.target_qx, dbgData.actual_qx)
+        dbgData.delta_qy = self.abs_helper(dbgData.target_qy, dbgData.actual_qy)
+        dbgData.delta_qz = self.abs_helper(dbgData.target_qz, dbgData.actual_qz)
+        dbgData.delta_qw = self.abs_helper(dbgData.target_qw, dbgData.actual_qw)
+
         self.debug_pub.publish(dbgData)
+
+    def abs_helper(self, x, y):
+        if (x > y):
+            return x - y
+        else :
+            return y - x
 
 def main(args=None):
     rclpy.init(args=args)
