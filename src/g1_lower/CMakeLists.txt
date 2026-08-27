@@ -35,10 +35,12 @@ set (
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
+find_package(ament_cmake_python REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(g1_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclpy REQUIRED)
 find_package(rosbag2_cpp REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 find_package(sensor_msgs REQUIRED)
@@ -137,8 +139,15 @@ install(TARGETS
 	g1_gesture_control
 	lowstate_jointstate_bridge
 	hands_controller
+	g1_gui_joints_cmd
 	DESTINATION lib/${PROJECT_NAME})
 
+ament_python_install_package(${PROJECT_NAME})
+
+install(PROGRAMS
+  scripts/g1_low_cmd_gui.py
+  DESTINATION lib/${PROJECT_NAME}
+)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

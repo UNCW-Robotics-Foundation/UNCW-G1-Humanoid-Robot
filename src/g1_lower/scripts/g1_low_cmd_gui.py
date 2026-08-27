@@ -1,7 +1,9 @@
+#!/usr/bin/env python3
+
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QScrollArea
-from joint_slider import JointSlider
-from gui_ros_node import LowCmdGuiRosNode
+from g1_lower.joint_slider import JointSlider
+from g1_lower.gui_ros_node import LowCmdGuiRosNode
 
 import sys
 import signal
