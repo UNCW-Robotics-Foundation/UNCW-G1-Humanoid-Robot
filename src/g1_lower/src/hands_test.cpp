@@ -122,7 +122,7 @@ class HandsTest : public rclcpp::Node {
           RCLCPP_INFO(this->get_logger(), "Opening hand...");
           positions = {0, 0, 0, 0, 0, 0};
           positions2 = {0, 0, 0, 0, 0, 0};
-          speeds = {10, 10, 10, 10, 10, 10};
+          speeds = {5, 5, 5, 5, 5, 5};
           for (int i = 0; i < 6; i++) {
               unitree_go::msg::MotorCmd handCmd;
               handCmd.q = positions[i];

@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>g1_lower</name>
+  <name>g1_tele</name>
   <version>0.0.0</version>
   <description>TODO: Package description</description>
   <maintainer email="temo@todo.todo">temo</maintainer>

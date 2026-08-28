@@ -59,8 +59,8 @@ const std::array<float, 29> Kd{
  public:
   ArmLowLevelController() : Node("arm_lowlevel_controller") {
     // ROS2接口初始化
-    cmd_pub_ = this->create_publisher<LowCmd>("/arm_sdk", 10);
-    //cmd_pub_ = this->create_publisher<LowCmd>("/lowcmd", 10);
+    //cmd_pub_ = this->create_publisher<LowCmd>("/arm_sdk", 10);
+    cmd_pub_ = this->create_publisher<LowCmd>("/lowcmd", 10);
     arm_joints_pub_ = this->create_publisher<g1_msgs::msg::ArmStates>("/arm_joints", 10);
     lowstate_sub_ = this->create_subscription<LowState>(
         "/lowstate", 10,
