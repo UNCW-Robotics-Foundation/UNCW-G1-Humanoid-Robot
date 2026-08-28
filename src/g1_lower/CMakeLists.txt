@@ -89,9 +89,6 @@ ament_target_dependencies(g1_lowcmd_test ${DEPENDENCY_LIST})
 add_executable(g1_ruckig_controller src/g1_ruckig_controller.cpp src/common/motor_crc_hg.cpp)
 ament_target_dependencies(g1_ruckig_controller ${DEPENDENCY_LIST})
 
-add_executable(g1_tele_arms src/g1_tele_arms.cpp)
-ament_target_dependencies(g1_tele_arms ${DEPENDENCY_LIST})
-
 add_executable(hands_controller src/hands_controller.cpp)
 ament_target_dependencies(hands_controller ${DEPENDENCY_LIST})
 
@@ -128,7 +125,6 @@ install(TARGETS g1_gui_joints_cmd)
 install(TARGETS g1_lowcmd_listener)
 install(TARGETS g1_lowcmd_test)
 install(TARGETS g1_ruckig_controller)
-install(TARGETS g1_tele_arms)
 install(TARGETS hands_controller)
 install(TARGETS hands_test)
 install(TARGETS jointstate_lowcmd_bridge)

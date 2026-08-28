@@ -15,6 +15,7 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+include_directories(include include/common)
 
 set (
   DEPENDENCY_LIST
@@ -54,7 +55,11 @@ find_package(unitree_hg REQUIRED)
 add_executable(g1_tele_controller src/g1_tele_controller.cpp)
 ament_target_dependencies(g1_tele_controller ${DEPENDENCY_LIST})
 
+add_executable(g1_ik_arms src/g1_ik_arms.cpp)
+ament_target_dependencies(g1_ik_arms ${DEPENDENCY_LIST})
+
 install(TARGETS g1_tele_controller)
+install(TARGETS g1_ik_arms)
 
 install(
 DIRECTORY launch

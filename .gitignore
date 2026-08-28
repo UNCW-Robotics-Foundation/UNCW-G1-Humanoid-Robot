@@ -5,3 +5,4 @@ build/
 *.pcd
 __pycache__/
 *.pyc
+libbc_stark_sdk.so

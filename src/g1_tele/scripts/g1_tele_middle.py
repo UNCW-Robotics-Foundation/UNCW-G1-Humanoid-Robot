@@ -15,12 +15,12 @@ Run:
     python3 ruckig_joint_trajectory_node.py
 
 Send a target:
-    ros2 topic pub --once /joint/target_position std_msgs/msg/Float64 "{data: 1.57}"
+    ros2 topic pub --once /joint/target_position geometry_msgs/msg/Point "{x: 0.3, y: -0.1, z: 0.5}"
 """
 
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Float64
+from geometry_msgs.msg import Point
 from trajectory_msgs.msg import JointTrajectoryPoint
 from unitree_hg.msg import LowCmd
 
@@ -34,36 +34,36 @@ class RuckigJointTrajectoryNode(Node):
         # ---- Parameters (tune to your joint's actual limits) ----
         self.declare_parameter('joint_name', 'joint_1')
         self.declare_parameter('control_frequency_hz', 100.0)
-        self.declare_parameter('max_velocity', 1.0)        # rad/s
-        self.declare_parameter('max_acceleration', 2.0)    # rad/s^2
-        self.declare_parameter('max_jerk', 5.0)             # rad/s^3
+        self.declare_parameter('max_velocity', [1.0, 1.0, 1.0])        # rad/s
+        self.declare_parameter('max_acceleration', [2.0, 2.0, 2.0])    # rad/s^2
+        self.declare_parameter('max_jerk', [5.0, 5.0, 5.0])             # rad/s^3
 
         self.joint_name = self.get_parameter('joint_name').value
         control_freq = self.get_parameter('control_frequency_hz').value
         self.dt = 1.0 / control_freq
 
         # ---- Ruckig setup: 1 degree of freedom ----
-        self.otg = Ruckig(1, self.dt)
-        self.inp = InputParameter(1)
-        self.out = OutputParameter(1)
+        self.otg = Ruckig(3, self.dt)
+        self.inp = InputParameter(3)
+        self.out = OutputParameter(3)
 
-        self.inp.current_position = [0.0]
-        self.inp.current_velocity = [0.0]
-        self.inp.current_acceleration = [0.0]
+        self.inp.current_position = [0.0, 0.0, 0.0]
+        self.inp.current_velocity = [0.0, 0.0, 0.0]
+        self.inp.current_acceleration = [0.0, 0.0, 0.0]
 
-        self.inp.target_position = [0.0]
-        self.inp.target_velocity = [0.0]
-        self.inp.target_acceleration = [0.0]
+        self.inp.target_position = [0.0, 0.0, 0.0]
+        self.inp.target_velocity = [0.0, 0.0, 0.0]
+        self.inp.target_acceleration = [0.0, 0.0, 0.0]
 
-        self.inp.max_velocity = [self.get_parameter('max_velocity').value]
-        self.inp.max_acceleration = [self.get_parameter('max_acceleration').value]
-        self.inp.max_jerk = [self.get_parameter('max_jerk').value]
+        self.inp.max_velocity = list(self.get_parameter('max_velocity').value)
+        self.inp.max_acceleration = list(self.get_parameter('max_acceleration').value)
+        self.inp.max_jerk = list(self.get_parameter('max_jerk').value)
 
         self._has_target = False
 
         # ---- ROS interfaces ----
         self.target_sub = self.create_subscription(
-            Float64, 'joint/target_position', self.target_callback, 10)
+            Point, 'joint/target_position', self.target_callback, 10)
 
         self.point_pub = self.create_publisher(
             JointTrajectoryPoint, 'joint/trajectory_point', 10)
@@ -77,14 +77,14 @@ class RuckigJointTrajectoryNode(Node):
             f"Ruckig trajectory generator running for '{self.joint_name}' "
             f"at {control_freq:.1f} Hz")
 
-    def target_callback(self, msg: Float64):
+    def target_callback(self, msg: Point):
         # Update the target; Ruckig will replan from the current in-flight
         # state on the very next update() call, so this is safe mid-motion.
-        self.inp.target_position = [msg.data]
-        self.inp.target_velocity = [0.0]
-        self.inp.target_acceleration = [0.0]
+        self.inp.target_position = [msg.x, msg.y, msg.z]
+        self.inp.target_velocity = [0.0, 0.0, 0.0]
+        self.inp.target_acceleration = [0.0, 0.0, 0.0]
         self._has_target = True
-        self.get_logger().info(f'New target position: {msg.data:.4f} rad')
+        self.get_logger().info(f'New target position: x={msg.x:.4f}, y={msg.y:.4f}, z={msg.z:.4f}')
 
     def update_loop(self):
         if not self._has_target:
@@ -93,25 +93,25 @@ class RuckigJointTrajectoryNode(Node):
         result = self.otg.update(self.inp, self.out)
 
         point = JointTrajectoryPoint()
-        point.positions = [self.out.new_position[0]]
-        point.velocities = [self.out.new_velocity[0]]
-        point.accelerations = [self.out.new_acceleration[0]]
+        point.positions = list(self.out.new_position)
+        point.velocities = list(self.out.new_velocity)
+        point.accelerations = list(self.out.new_acceleration)
         self.point_pub.publish(point)
 
-        cmd = LowCmd()
-        cmd.mode_machine = 5
-        for i in range(29):
-            if i == 15:
-                cmd.motor_cmd[i].q = self.out.new_position[0]
-                cmd.motor_cmd[i].dq = self.out.new_velocity[0]
-            else :
-                cmd.motor_cmd[i].dq = 0.0
-                cmd.motor_cmd[i].dq = 0.0
-            cmd.motor_cmd[i].tau = 0.0
-            cmd.motor_cmd[i].kp = 60.0
-            cmd.motor_cmd[i].kd = 1.5
-            cmd.motor_cmd[i].mode = 1
-        self.cmd_pub.publish(cmd)
+        # cmd = LowCmd()
+        # cmd.mode_machine = 5
+        # for i in range(29):
+        #     if i == 15:
+        #         cmd.motor_cmd[i].q = self.out.new_position[0]
+        #         cmd.motor_cmd[i].dq = self.out.new_velocity[0]
+        #     else :
+        #         cmd.motor_cmd[i].dq = 0.0
+        #         cmd.motor_cmd[i].dq = 0.0
+        #     cmd.motor_cmd[i].tau = 0.0
+        #     cmd.motor_cmd[i].kp = 60.0
+        #     cmd.motor_cmd[i].kd = 1.5
+        #     cmd.motor_cmd[i].mode = 1
+        # self.cmd_pub.publish(cmd)
 
         # Feed this cycle's output back in as next cycle's current state.
         # This is the standard Ruckig "online" pattern.
