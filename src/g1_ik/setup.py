@@ -24,6 +24,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+        	'g1_ik_command = g1_ik.g1_ik_command:main',
         	'g1_ik_controller = g1_ik.g1_ik_controller:main',
         	'g1_ik_controller_v2 = g1_ik.g1_ik_controller_v2:main',
         	'g1_ik_controller_v3 = g1_ik.g1_ik_controller_v3:main',
