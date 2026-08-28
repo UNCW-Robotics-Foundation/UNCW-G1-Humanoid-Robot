@@ -23,11 +23,11 @@ class G1_29_ArmIK:
         self.cache_path = "g1_29_model_cache.pkl"
 
         if not self.Unit_Test:
-            self.urdf_path = '/home/temo/ik_ws/UNCW-G1-Humanoid-Robot/src/g1_ik/assets/g1/g1_body29_hand14.urdf'
-            self.model_dir = '/home/temo/ik_ws/UNCW-G1-Humanoid-Robot/src/g1_ik/assets/g1'
+            self.urdf_path = '/home/temo/ik_ws/UNCW-G1-Humanoid-Robot/src/g1_ik/assets/g1_v3/g1_29dof.urdf'
+            self.model_dir = '/home/temo/ik_ws/UNCW-G1-Humanoid-Robot/src/g1_ik/assets/g1_v3'
         else:
-            self.urdf_path = '/home/temo/ik_ws/UNCW-G1-Humanoid-Robot/src/g1_ik/assets/g1/g1_body29_hand14.urdf'
-            self.model_dir = '/home/temo/ik_ws/UNCW-G1-Humanoid-Robot/src/g1_ik/assets/g1'
+            self.urdf_path = '/home/temo/ik_ws/UNCW-G1-Humanoid-Robot/src/g1_ik/assets/g1_v3/g1_29dof.urdf'
+            self.model_dir = '/home/temo/ik_ws/UNCW-G1-Humanoid-Robot/src/g1_ik/assets/g1_v3'
 
         # Try loading cache first
         if os.path.exists(self.cache_path):
@@ -53,22 +53,6 @@ class G1_29_ArmIK:
                                             "waist_yaw_joint" ,
                                             "waist_roll_joint" ,
                                             "waist_pitch_joint" ,
-                                            
-                                            "left_hand_thumb_0_joint" ,
-                                            "left_hand_thumb_1_joint" ,
-                                            "left_hand_thumb_2_joint" ,
-                                            "left_hand_middle_0_joint" ,
-                                            "left_hand_middle_1_joint" ,
-                                            "left_hand_index_0_joint" ,
-                                            "left_hand_index_1_joint" ,
-                                            
-                                            "right_hand_thumb_0_joint" ,
-                                            "right_hand_thumb_1_joint" ,
-                                            "right_hand_thumb_2_joint" ,
-                                            "right_hand_index_0_joint" ,
-                                            "right_hand_index_1_joint" ,
-                                            "right_hand_middle_0_joint",
-                                            "right_hand_middle_1_joint"
                                         ]
 
             self.reduced_robot = self.robot.buildReducedRobot(
