@@ -83,6 +83,8 @@ class MinimalSubscriber(Node):
         self.robot_flag = True
 
     def joy_callback(self, msg):
+        self.matrix[0, 3] += msg.axes[1] * .002
+        self.matrix[1, 3] += msg.axes[0] * .002
         if (self.btn_flag):
             press_counter = 0
             msg_btn_size = len(msg.buttons)
