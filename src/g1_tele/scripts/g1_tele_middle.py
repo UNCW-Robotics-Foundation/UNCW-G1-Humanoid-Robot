@@ -23,6 +23,7 @@ from rclpy.node import Node
 from geometry_msgs.msg import Point
 from trajectory_msgs.msg import JointTrajectoryPoint
 from unitree_hg.msg import LowCmd
+from sensor_msgs.msg import Joy
 
 from ruckig import InputParameter, OutputParameter, Result, Ruckig
 
@@ -61,9 +62,15 @@ class RuckigJointTrajectoryNode(Node):
 
         self._has_target = False
 
+        self.target_x = 0.0
+        self.target_y = 0.0
+
         # ---- ROS interfaces ----
         self.target_sub = self.create_subscription(
             Point, 'joint/target_position', self.target_callback, 10)
+
+        # self.joy_sub = self.create_subscription(
+        #             Joy, 'joy', self.joy_callback, 10)
 
         self.point_pub = self.create_publisher(
             JointTrajectoryPoint, 'joint/trajectory_point', 10)
@@ -85,6 +92,17 @@ class RuckigJointTrajectoryNode(Node):
         self.inp.target_acceleration = [0.0, 0.0, 0.0]
         self._has_target = True
         self.get_logger().info(f'New target position: x={msg.x:.4f}, y={msg.y:.4f}, z={msg.z:.4f}')
+
+    def joy_callback(self, msg: Joy):
+        # Update the target; Ruckig will replan from the current in-flight
+        # state on the very next update() call, so this is safe mid-motion.
+        self.target_x += msg.axes[1] * 0.002
+        self.target_y += msg.axes[0] * 0.002
+        self.inp.target_position = [self.target_x, self.target_y, 0.0]
+        self.inp.target_velocity = [0.0, 0.0, 0.0]
+        self.inp.target_acceleration = [0.0, 0.0, 0.0]
+        self._has_target = True
+        #self.get_logger().info(f'New target position: x={msg.x:.4f}, y={msg.y:.4f}, z={msg.z:.4f}')
 
     def update_loop(self):
         if not self._has_target:

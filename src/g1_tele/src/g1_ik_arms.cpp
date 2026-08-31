@@ -59,8 +59,8 @@ const std::array<float, 29> Kd{
  public:
   ArmLowLevelController() : Node("arm_lowlevel_controller") {
     // ROS2接口初始化
-    //cmd_pub_ = this->create_publisher<LowCmd>("/arm_sdk", 10);
-    cmd_pub_ = this->create_publisher<LowCmd>("/lowcmd", 10);
+    cmd_pub_ = this->create_publisher<LowCmd>("/arm_sdk", 10);
+    //cmd_pub_ = this->create_publisher<LowCmd>("/lowcmd", 10);
     arm_joints_pub_ = this->create_publisher<g1_msgs::msg::ArmStates>("/arm_joints", 10);
     lowstate_sub_ = this->create_subscription<LowState>(
         "/lowstate", 10,
@@ -104,7 +104,7 @@ const std::array<float, 29> Kd{
   float max_joint_velocity_{0.5F};
   std::chrono::milliseconds sleep_time_{};
 
-  std::array<g1_msgs::msg::MotorState, NUM_ARM_JOINTS> current_arm_pos_{};
+  std::array<g1_msgs::msg::MotorState, NUM_ARM_JOINTS> current_arm_pos_;
   g1_msgs::msg::ArmStates current_arms;
 
   const float kp_high = 300.0;
@@ -244,7 +244,6 @@ const std::array<float, 29> Kd{
     }
     std::this_thread::sleep_for(sleep_time_);
 
-    unitree_hg::msg::LowState initial_state = last_state_;
     std::array<float, 17> target_initial;
 
     std::array<float, 17> current_lowstate_arms;
