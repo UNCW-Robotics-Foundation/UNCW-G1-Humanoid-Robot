@@ -138,10 +138,10 @@ class MinimalSubscriber(Node):
 
     def on_timer(self):
         try:
-            # t = self.tf_buffer.lookup_transform(
-            #     'pelvis',
-            #     'left_wrist_yaw_link',
-            #     rclpy.time.Time())
+            t = self.tf_buffer.lookup_transform(
+                'pelvis',
+                'left_wrist_yaw_link',
+                rclpy.time.Time())
 
             if self.robot_flag:
                 #sol_q, sol_tauff  = self.arm_ik.solve_ik(self.matrix, self.matrix_default, np.array([ joint.q for joint in self.current_arms.motor_states]), np.array([ joint.dq for joint in self.current_arms.motor_states]))
@@ -163,32 +163,32 @@ class MinimalSubscriber(Node):
                 f'Could not find transform: {ex}')
             return
 
-        # dbgData = DebugData()
-        # dbgData.target_tx = self.matrix[0, 3]
-        # dbgData.target_ty = self.matrix[1, 3]
-        # dbgData.target_tz = self.matrix[2, 3]
+        dbgData = DebugData()
+        dbgData.target_tx = self.matrix[0, 3]
+        dbgData.target_ty = self.matrix[1, 3]
+        dbgData.target_tz = self.matrix[2, 3]
         # dbgData.target_qx = 0.0035137;
         # dbgData.target_qy = 0.0783057;
         # dbgData.target_qz = -0.0454273;
         # dbgData.target_qw = 0.9958877;
 
-        # dbgData.actual_tx = t.transform.translation.x
-        # dbgData.actual_ty = t.transform.translation.y
-        # dbgData.actual_tz = t.transform.translation.z
+        dbgData.actual_tx = t.transform.translation.x
+        dbgData.actual_ty = t.transform.translation.y
+        dbgData.actual_tz = t.transform.translation.z
         # dbgData.actual_qx = t.transform.rotation.x
         # dbgData.actual_qy = t.transform.rotation.y
         # dbgData.actual_qz = t.transform.rotation.z
         # dbgData.actual_qw = t.transform.rotation.w
 
-        # dbgData.delta_tx = self.abs_helper(dbgData.target_tx, dbgData.actual_tx)
-        # dbgData.delta_ty = self.abs_helper(dbgData.target_ty, dbgData.actual_ty)
-        # dbgData.delta_tz = self.abs_helper(dbgData.target_tz, dbgData.actual_tz)
+        dbgData.delta_tx = self.abs_helper(dbgData.target_tx, dbgData.actual_tx)
+        dbgData.delta_ty = self.abs_helper(dbgData.target_ty, dbgData.actual_ty)
+        dbgData.delta_tz = self.abs_helper(dbgData.target_tz, dbgData.actual_tz)
         # dbgData.delta_qx = self.abs_helper(dbgData.target_qx, dbgData.actual_qx)
         # dbgData.delta_qy = self.abs_helper(dbgData.target_qy, dbgData.actual_qy)
         # dbgData.delta_qz = self.abs_helper(dbgData.target_qz, dbgData.actual_qz)
         # dbgData.delta_qw = self.abs_helper(dbgData.target_qw, dbgData.actual_qw)
 
-        # self.debug_pub.publish(dbgData)
+        self.debug_pub.publish(dbgData)
 
     def abs_helper(self, x, y):
         if (x > y):
