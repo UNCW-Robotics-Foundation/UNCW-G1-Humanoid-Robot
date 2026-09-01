@@ -107,8 +107,8 @@ const std::array<float, 29> Kd{
   std::array<g1_msgs::msg::MotorState, NUM_ARM_JOINTS> current_arm_pos_;
   g1_msgs::msg::ArmStates current_arms;
 
-  const float kp_high = 300.0;
-  const float kd_high = 3.0;
+  // const float kp_high = 300.0;
+  // const float kd_high = 3.0;
   const float kp_low = 80.0;
   const float kd_low = 3.0;
   const float kp_wrist = 40.0;
@@ -153,10 +153,17 @@ const std::array<float, 29> Kd{
     for (int i = 15; i < 29; ++i) {
       cmd.motor_cmd[i].q = ik_sol.motor_states[i-15].q;
       cmd.motor_cmd[i].dq = 0.0F;
+      // cmd.motor_cmd[i].tau = ik_sol.motor_states[i-15].dq;
       cmd.motor_cmd[i].tau = 0.0F;
       //cmd.motor_cmd[i].mode = 1;
-      cmd.motor_cmd[i].kp = Kp[i];
-      cmd.motor_cmd[i].kd = Kd[i];
+      if (((i >= 19) && (i <= 21)) || (i >= 26)) {
+        cmd.motor_cmd[i].kp = kp_wrist;
+        cmd.motor_cmd[i].kd = kd_wrist;
+      } else {
+        cmd.motor_cmd[i].kp = kp_low;
+        cmd.motor_cmd[i].kd = kd_low;
+      }
+
     }
     for (int i = 12; i < 15; i++) {
       cmd.motor_cmd[i].q = 0.0F;

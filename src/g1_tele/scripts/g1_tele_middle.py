@@ -34,10 +34,10 @@ class RuckigJointTrajectoryNode(Node):
 
         # ---- Parameters (tune to your joint's actual limits) ----
         self.declare_parameter('joint_name', 'joint_1')
-        self.declare_parameter('control_frequency_hz', 100.0)
-        self.declare_parameter('max_velocity', [1.0, 1.0, 1.0])        # rad/s
-        self.declare_parameter('max_acceleration', [2.0, 2.0, 2.0])    # rad/s^2
-        self.declare_parameter('max_jerk', [5.0, 5.0, 5.0])             # rad/s^3
+        self.declare_parameter('control_frequency_hz', 10.0)
+        self.declare_parameter('max_velocity', [0.1, 0.1, 0.1])        # rad/s
+        self.declare_parameter('max_acceleration', [0.2, 0.2, 0.2])    # rad/s^2
+        self.declare_parameter('max_jerk', [3.0, 3.0, 3.0])             # rad/s^3
 
         self.joint_name = self.get_parameter('joint_name').value
         control_freq = self.get_parameter('control_frequency_hz').value
