@@ -84,7 +84,7 @@ class MinimalSubscriber(Node):
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
 
-        self.timer = self.create_timer(0.1, self.on_timer)
+        self.timer = self.create_timer(0.01, self.on_timer)
 
     def listener_callback(self, msg):
         #self.get_logger().info('I heard: ' + str(msg.motor_states[0].q))
