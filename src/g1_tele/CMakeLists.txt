@@ -16,6 +16,7 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 include_directories(include include/common)
+link_directories(src)
 
 set (
   DEPENDENCY_LIST
@@ -58,8 +59,12 @@ ament_target_dependencies(g1_tele_controller ${DEPENDENCY_LIST})
 add_executable(g1_ik_arms src/g1_ik_arms.cpp)
 ament_target_dependencies(g1_ik_arms ${DEPENDENCY_LIST})
 
+add_executable(g1_lowcmd_ik_arms src/g1_lowcmd_ik_arms.cpp src/common/motor_crc_hg.cpp)
+ament_target_dependencies(g1_lowcmd_ik_arms ${DEPENDENCY_LIST})
+
 install(TARGETS g1_tele_controller)
 install(TARGETS g1_ik_arms)
+install(TARGETS g1_lowcmd_ik_arms)
 
 install(
 DIRECTORY launch
