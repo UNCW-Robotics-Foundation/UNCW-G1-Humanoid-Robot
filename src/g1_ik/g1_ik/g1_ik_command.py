@@ -7,15 +7,40 @@ from tf2_ros.transform_listener import TransformListener
 from tf2_ros.buffer import Buffer
 from tf2_ros import TransformException
 import numpy as np
-from g1_ik.robot_arm_ik import G1_29_ArmIK
+from g1_ik.robot_arm_ik_v3 import G1_29_ArmIK
 from sensor_msgs.msg import Joy
 from trajectory_msgs.msg import JointTrajectoryPoint
 import logging_mp
+import time
+from scipy.spatial.transform import Rotation as R
 logger_mp = logging_mp.getLogger(__name__)
 
-initial_x = 0.207
-initial_y = 0.129
-initial_z = 0.067
+real_l = np.array([
+    [0.984, 0.091, 0.156, 0.207],
+    [-0.090, 0.996, -0.014, 0.129],
+    [-0.156, 0.000, 0.988, 0.067],
+    [0.0, 0.0, 0.0, 1.0]
+])
+real_r = np.array([
+    [0.982, 0.108, 0.155, 0.177],
+    [-0.105, 0.994, -0.024, -0.168],
+    [-0.157, 0.007, 0.988, 0.066],
+    [0.0, 0.0, 0.0, 1.0]
+])
+
+sim_l = np.array([
+    [0.955, -0.002, 0.295, 0.185],
+    [0.003, 1.000, -0.005, 0.150],
+    [-0.295, 0.000, 0.955, 0.061],
+    [0.0, 0.0, 0.0, 1.0]
+])
+
+sim_r = np.array([
+    [0.962, 0.014, 0.271, 0.186],
+    [-0.013, 1.000, -0.008, -0.150],
+    [-0.271, 0.004, 0.962, 0.062],
+    [0.0, 0.0, 0.0, 1.0]
+])
 
 class MinimalSubscriber(Node):
 
@@ -51,32 +76,20 @@ class MinimalSubscriber(Node):
                     10)
         self.debug_pub
 
-        self.matrix = np.array([
-            [0.984, 0.091, 0.156, initial_x],
-            [-0.090, 0.996, -0.014, initial_y],
-            [-0.156, 0.000, 0.988, initial_z],
-            [0.0, 0.0, 0.0, 1.0]
-        ])
-        # self.matrix = np.array([
-        #     [0.991, 0.012, -0.133, -0.201],
-        #     [-0.012, 1.0, -0.003, -0.128],
-        #     [0.132, 0.004, 0.991, -0.097],
-        #     [0.0, 0.0, 0.0, 1.0]
-        # ])
-        self.matrix_default = np.array([
-            [0.982, 0.108, 0.155, 0.177],
-            [-0.105, 0.994, -0.024, -0.168],
-            [-0.157, 0.007, 0.988, 0.066],
-            [0.0, 0.0, 0.0, 1.0]
-        ])
+        self.matrix = sim_l
+        self.matrix_default = sim_r
+        self.initial_x = sim_l[0, 3]
+        self.initial_y = sim_l[1, 3]
+        self.initial_z = sim_l[2, 3]
+
         self.count = 0
-        self.t_x = 0.0
-        self.t_y = 0.0
-        self.t_z = 0.0
+
         self.frame_flag = False
         self.robot_flag = False
         self.btn_flag = False
         #self.traj_flag = False
+        self.get_pin_fk = True
+
         self.current_arms = ArmStates()
         self.current_traj = JointTrajectoryPoint()
         self.arm_ik = G1_29_ArmIK()
@@ -84,18 +97,22 @@ class MinimalSubscriber(Node):
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
 
-        self.timer = self.create_timer(0.01, self.on_timer)
+        self.timer = self.create_timer(0.1, self.on_timer)
 
     def listener_callback(self, msg):
         #self.get_logger().info('I heard: ' + str(msg.motor_states[0].q))
         self.current_arms = msg
-        self.robot_flag = True
+        if self.count < 5:
+            #print("init joint[0] q:", self.current_arms.motor_states[0].q)
+            self.count += 1
+        else:
+            self.robot_flag = True
 
     def traj_callback(self, msg):
             self.current_traj = msg
-            self.matrix[0, 3] = self.current_traj.positions[0] + initial_x
-            self.matrix[1, 3] = self.current_traj.positions[1] + initial_y
-            self.matrix[2, 3] = self.current_traj.positions[2] + initial_z
+            self.matrix[0, 3] = self.current_traj.positions[0] + self.initial_x
+            self.matrix[1, 3] = self.current_traj.positions[1] + self.initial_y
+            self.matrix[2, 3] = self.current_traj.positions[2] + self.initial_z
             #self.traj_flag = True
 
     def joy_callback(self, msg):
@@ -129,23 +146,54 @@ class MinimalSubscriber(Node):
             # self.matrix[2, 3] += 0.01
             self.btn_flag = True
         elif (msg.buttons[1] == 1):   # B
-            self.matrix[0, 3] = initial_x
-            self.matrix[1, 3] = initial_y
-            self.matrix[2, 3] = initial_z
+            self.matrix[0, 3] = self.initial_x
+            self.matrix[1, 3] = self.initial_y
+            self.matrix[2, 3] = self.initial_z
             self.btn_flag = True
         else:
             return
 
+    def set_matrix(self, t, r, arm):
+        if arm == 0:
+            self.initial_x = t[0]
+            self.initial_y = t[1]
+            self.initial_z = t[2]
+
+            for i in range(3):
+                self.matrix[i, 3] = t[i]
+                for j in range(3):
+                    self.matrix[i, j] = r[i, j]
+        else:
+            for i in range(3):
+                self.matrix_default[i, 3] = t[i]
+                for j in range(3):
+                    self.matrix_default[i, j] = r[i, j]
+
     def on_timer(self):
         try:
-            t = self.tf_buffer.lookup_transform(
-                'pelvis',
-                'left_wrist_yaw_link',
-                rclpy.time.Time())
+            # t = self.tf_buffer.lookup_transform(
+            #     'pelvis',
+            #     'left_wrist_yaw_link',
+            #     rclpy.time.Time())
 
             if self.robot_flag:
+                pin_t, pin_r, pin_q = self.arm_ik.get_fk_l(np.array([ joint.q for joint in self.current_arms.motor_states]))
+                print("Translation:", pin_t)
+                print("Rotation:")
+                print(pin_r)
+                print(pin_q)
+                print()
+                if self.get_pin_fk:
+                    self.get_pin_fk = False
+                    self.set_matrix(pin_t, pin_r, 0)
+                    r_pin_t, r_pin_r = self.arm_ik.get_fk_r(np.array([ joint.q for joint in self.current_arms.motor_states]))
+                    self.set_matrix(r_pin_t, r_pin_r, 1)
+                #time_start = time.time()
                 sol_q, sol_tauff  = self.arm_ik.solve_ik(self.matrix, self.matrix_default, np.array([ joint.q for joint in self.current_arms.motor_states]), np.array([ joint.dq for joint in self.current_arms.motor_states]))
                 #sol_q, sol_tauff  = self.arm_ik.solve_ik(self.matrix, self.matrix_default, np.array([ joint.q for joint in self.current_arms.motor_states]), np.array([ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]))
+                #time_end = time.time()
+                #self.get_logger().info("IK Solve Time: " + str((time_end - time_start))
+                
                 new_arms = ArmStates()
                 tmp_arms = []
                 for i in range(14):
@@ -157,36 +205,56 @@ class MinimalSubscriber(Node):
                 #self.get_logger().info('publishing ik solutions')
                 self.ik_pub.publish(new_arms)
                 #print(self.matrix)
+                if self.count < 15:
+                    self.count += 1
+                    #print("solution", self.count - 6, " before publishing:", sol_q[0])
+                else:
+                    self.ik_pub.publish(new_arms)
+                    if self.count < 25:
+                        #print("solution", self.count - 15, " after publishing:", sol_q[0])
+                        self.count += 1
 
         except TransformException as ex:
             self.get_logger().info(
                 f'Could not find transform: {ex}')
             return
 
+        tmp_r = R.from_matrix(self.matrix[0:3, 0:3])
+        target_q = tmp_r.as_quat()
         dbgData = DebugData()
         dbgData.target_tx = self.matrix[0, 3]
         dbgData.target_ty = self.matrix[1, 3]
         dbgData.target_tz = self.matrix[2, 3]
-        # dbgData.target_qx = 0.0035137;
-        # dbgData.target_qy = 0.0783057;
-        # dbgData.target_qz = -0.0454273;
-        # dbgData.target_qw = 0.9958877;
+        dbgData.target_qx = target_q[0];
+        dbgData.target_qy = target_q[1];
+        dbgData.target_qz = target_q[2];
+        dbgData.target_qw = target_q[3];
 
-        dbgData.actual_tx = t.transform.translation.x
-        dbgData.actual_ty = t.transform.translation.y
-        dbgData.actual_tz = t.transform.translation.z
+        # dbgData.actual_tx = t.transform.translation.x
+        # dbgData.actual_ty = t.transform.translation.y
+        # dbgData.actual_tz = t.transform.translation.z
+        # print(dbgData.actual_tz)
         # dbgData.actual_qx = t.transform.rotation.x
         # dbgData.actual_qy = t.transform.rotation.y
         # dbgData.actual_qz = t.transform.rotation.z
         # dbgData.actual_qw = t.transform.rotation.w
 
+        dbgData.actual_tx = pin_t[0]
+        dbgData.actual_ty = pin_t[1]
+        dbgData.actual_tz = pin_t[2]
+        # print(dbgData.actual_tz)
+        dbgData.actual_qx = pin_q[0]
+        dbgData.actual_qy = pin_q[1]
+        dbgData.actual_qz = pin_q[2]
+        dbgData.actual_qw = pin_q[3]
+
         dbgData.delta_tx = self.abs_helper(dbgData.target_tx, dbgData.actual_tx)
         dbgData.delta_ty = self.abs_helper(dbgData.target_ty, dbgData.actual_ty)
         dbgData.delta_tz = self.abs_helper(dbgData.target_tz, dbgData.actual_tz)
-        # dbgData.delta_qx = self.abs_helper(dbgData.target_qx, dbgData.actual_qx)
-        # dbgData.delta_qy = self.abs_helper(dbgData.target_qy, dbgData.actual_qy)
-        # dbgData.delta_qz = self.abs_helper(dbgData.target_qz, dbgData.actual_qz)
-        # dbgData.delta_qw = self.abs_helper(dbgData.target_qw, dbgData.actual_qw)
+        dbgData.delta_qx = self.abs_helper(dbgData.target_qx, dbgData.actual_qx)
+        dbgData.delta_qy = self.abs_helper(dbgData.target_qy, dbgData.actual_qy)
+        dbgData.delta_qz = self.abs_helper(dbgData.target_qz, dbgData.actual_qz)
+        dbgData.delta_qw = self.abs_helper(dbgData.target_qw, dbgData.actual_qw)
 
         self.debug_pub.publish(dbgData)
 

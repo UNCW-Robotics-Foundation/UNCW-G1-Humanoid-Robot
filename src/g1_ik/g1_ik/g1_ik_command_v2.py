@@ -78,9 +78,9 @@ class MinimalSubscriber(Node):
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
 
-        self.timer = self.create_timer(0.1, self.on_timer)
+        self.timer = self.create_timer(0.01, self.on_timer)
 
-        self.otg = Ruckig(7, 0.1)
+        self.otg = Ruckig(7, (1.0 / 30.0))
         self.inp = InputParameter(7)
         self.out = OutputParameter(7)
 
@@ -90,9 +90,9 @@ class MinimalSubscriber(Node):
         self.inp.target_velocity = [0.0] * 7
         self.inp.target_acceleration = [0.0] * 7
 
-        self.inp.max_velocity = [0.5] * 7
-        self.inp.max_acceleration = [1.0] * 7
-        self.inp.max_jerk = [5.0] * 7
+        self.inp.max_velocity = [0.05] * 7
+        self.inp.max_acceleration = [0.1] * 7
+        self.inp.max_jerk = [2.0] * 7
 
         self._has_target = False
         self.ik_flag = False
@@ -159,24 +159,24 @@ class MinimalSubscriber(Node):
                     'pelvis',
                     'left_wrist_yaw_link',
                     rclpy.time.Time())
-                quat = [t.transform.rotation.x, t.transform.rotation.y, t.transform.rotation.z, t.transform.rotation.w]
-                rotation = R.from_quat(quat)
-                rotation_matrix = rotation.as_matrix()
-                self.initial_x = t.transform.translation.x
-                self.initial_y = t.transform.translation.y
-                self.initial_z = t.transform.translation.z
+                # quat = [t.transform.rotation.x, t.transform.rotation.y, t.transform.rotation.z, t.transform.rotation.w]
+                # rotation = R.from_quat(quat)
+                # rotation_matrix = rotation.as_matrix()
+                # self.initial_x = t.transform.translation.x
+                # self.initial_y = t.transform.translation.y
+                # self.initial_z = t.transform.translation.z
 
-                self.matrix = np.array([
-                    [rotation_matrix[0, 0], rotation_matrix[0, 1], rotation_matrix[0, 2], self.initial_x],
-                    [rotation_matrix[1, 0], rotation_matrix[1, 1], rotation_matrix[1, 2], self.initial_y],
-                    [rotation_matrix[2, 0], rotation_matrix[2, 1], rotation_matrix[2, 2], self.initial_z],
-                    [0.0, 0.0, 0.0, 1.0]
-                ])
+                # self.matrix = np.array([
+                #     [rotation_matrix[0, 0], rotation_matrix[0, 1], rotation_matrix[0, 2], self.initial_x],
+                #     [rotation_matrix[1, 0], rotation_matrix[1, 1], rotation_matrix[1, 2], self.initial_y],
+                #     [rotation_matrix[2, 0], rotation_matrix[2, 1], rotation_matrix[2, 2], self.initial_z],
+                #     [0.0, 0.0, 0.0, 1.0]
+                # ])
                 self.get_frame = False
 
-            if self.robot_flag and self.ik_flag:
+            
                 #sol_q, sol_tauff  = self.arm_ik.solve_ik(self.matrix, self.matrix_default, np.array([ joint.q for joint in self.current_arms.motor_states]), np.array([ joint.dq for joint in self.current_arms.motor_states]))
-                sol_q, sol_tauff  = self.arm_ik.solve_ik(self.matrix, self.matrix_default, np.array([ joint.q for joint in self.current_arms.motor_states]), np.array([ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]))
+            sol_q, sol_tauff  = self.arm_ik.solve_ik(self.matrix, self.matrix_default, np.array([ joint.q for joint in self.current_arms.motor_states]), np.array([ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]))
 
                 # new_arms = ArmStates()
                 # tmp_arms = []
@@ -188,6 +188,7 @@ class MinimalSubscriber(Node):
                 # new_arms.motor_states = tmp_arms
                 # self.ik_pub.publish(new_arms)
 
+            if self.robot_flag and self.ik_flag:
                 self.inp.current_position = [ joint.q for joint in self.current_arms.motor_states[:7]]
                 self.inp.target_position = [ t for t in sol_q[:7]]
                 self.ik_flag = False

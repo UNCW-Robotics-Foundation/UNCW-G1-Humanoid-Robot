@@ -23,11 +23,11 @@ class G1_29_ArmIK:
         self.cache_path = "g1_29_model_cache.pkl"
 
         if not self.Unit_Test:
-            self.urdf_path = '/home/temo/ik_ws/UNCW-G1-Humanoid-Robot/src/g1_ik/assets/g1_v3/g1_29dof.urdf'
-            self.model_dir = '/home/temo/ik_ws/UNCW-G1-Humanoid-Robot/src/g1_ik/assets/g1_v3'
+            self.urdf_path = '/home/temo/ik_ws/UNCW-G1-Humanoid-Robot/src/g1_ik/assets/g1_v2/g1_29dof_mode_15_brainco_hand.urdf'
+            self.model_dir = '/home/temo/ik_ws/UNCW-G1-Humanoid-Robot/src/g1_ik/assets/g1_v2'
         else:
-            self.urdf_path = '/home/temo/ik_ws/UNCW-G1-Humanoid-Robot/src/g1_ik/assets/g1_v3/g1_29dof.urdf'
-            self.model_dir = '/home/temo/ik_ws/UNCW-G1-Humanoid-Robot/src/g1_ik/assets/g1_v3'
+            self.urdf_path = '/home/temo/ik_ws/UNCW-G1-Humanoid-Robot/src/g1_ik/assets/g1_v2/g1_29dof_mode_15_brainco_hand.urdf'
+            self.model_dir = '/home/temo/ik_ws/UNCW-G1-Humanoid-Robot/src/g1_ik/assets/g1_v2'
 
         # Try loading cache first
         if os.path.exists(self.cache_path):
@@ -53,6 +53,40 @@ class G1_29_ArmIK:
                                             "waist_yaw_joint" ,
                                             "waist_roll_joint" ,
                                             "waist_pitch_joint" ,
+                                            
+                                            "left_thumb_metacarpal_joint",
+                                            "left_thumb_proximal_joint",
+                                            "left_thumb_distal_joint" ,
+                                            "left_thumb_tip_joint" ,
+                                            "left_index_proximal_joint" ,
+                                            "left_index_distal_joint" ,
+                                            "left_index_tip_joint" ,
+                                            "left_middle_proximal_joint",
+                                            "left_middle_distal_joint",
+                                            "left_middle_tip_joint" ,
+                                            "left_ring_proximal_joint" ,
+                                            "left_ring_distal_joint" ,
+                                            "left_ring_tip_joint" ,
+                                            "left_pinky_proximal_joint" ,
+                                            "left_pinky_distal_joint",
+                                            "left_pinky_tip_joint",
+                                            
+                                            "right_thumb_metacarpal_joint",
+                                            "right_thumb_proximal_joint",
+                                            "right_thumb_distal_joint" ,
+                                            "right_thumb_tip_joint" ,
+                                            "right_index_proximal_joint" ,
+                                            "right_index_distal_joint" ,
+                                            "right_index_tip_joint" ,
+                                            "right_middle_proximal_joint",
+                                            "right_middle_distal_joint",
+                                            "right_middle_tip_joint" ,
+                                            "right_ring_proximal_joint" ,
+                                            "right_ring_distal_joint" ,
+                                            "right_ring_tip_joint" ,
+                                            "right_pinky_proximal_joint" ,
+                                            "right_pinky_distal_joint",
+                                            "right_pinky_tip_joint"
                                         ]
 
             self.reduced_robot = self.robot.buildReducedRobot(
@@ -151,7 +185,7 @@ class G1_29_ArmIK:
             'ipopt.tol': 1e-4,
             'ipopt.acceptable_tol': 5e-4,
             'ipopt.acceptable_iter': 5,
-            'ipopt.warm_start_init_point': 'yes',
+            'ipopt.warm_start_init_point': 'no',
             'ipopt.derivative_test': 'none',
             'ipopt.jacobian_approximation': 'exact',
             # 'ipopt.hessian_approximation': 'limited-memory',
@@ -195,21 +229,6 @@ class G1_29_ArmIK:
         robot_right_pose[:3, 3] *= scale_factor
         return robot_left_pose, robot_right_pose
 
-    def get_fk_l(self, current_lr_arm_motor_q):
-        pin.forwardKinematics(self.reduced_robot.model, self.reduced_robot.data, current_lr_arm_motor_q)
-        pin.updateFramePlacements(self.reduced_robot.model, self.reduced_robot.data)
-        t = self.reduced_robot.data.oMf[self.L_hand_id].translation
-        r = self.reduced_robot.data.oMf[self.L_hand_id].rotation
-        q = pin.Quaternion(r)
-        return t, r, q
-
-    def get_fk_r(self, current_lr_arm_motor_q):
-        pin.forwardKinematics(self.reduced_robot.model, self.reduced_robot.data, current_lr_arm_motor_q)
-        pin.updateFramePlacements(self.reduced_robot.model, self.reduced_robot.data)
-        t = self.reduced_robot.data.oMf[self.R_hand_id].translation
-        r = self.reduced_robot.data.oMf[self.R_hand_id].rotation
-        return t, r
-
     def solve_ik(self, left_wrist, right_wrist, current_lr_arm_motor_q = None, current_lr_arm_motor_dq = None):
         if current_lr_arm_motor_q is not None:
             self.init_data = current_lr_arm_motor_q
@@ -234,7 +253,7 @@ class G1_29_ArmIK:
             else:
                 v = (sol_q - self.init_data) * 0.0
 
-            self.init_data = sol_q
+            #self.init_data = sol_q
 
             sol_tauff = pin.rnea(self.reduced_robot.model, self.reduced_robot.data, sol_q, v, np.zeros(self.reduced_robot.model.nv))
 
@@ -252,7 +271,7 @@ class G1_29_ArmIK:
             else:
                 v = (sol_q - self.init_data) * 0.0
 
-            self.init_data = sol_q
+            #self.init_data = sol_q
 
             sol_tauff = pin.rnea(self.reduced_robot.model, self.reduced_robot.data, sol_q, v, np.zeros(self.reduced_robot.model.nv))
 

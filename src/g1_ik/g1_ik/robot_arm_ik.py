@@ -225,6 +225,7 @@ class G1_29_ArmIK:
         try:
             sol = self.opti.solve()
             # sol = self.opti.solve_limited()
+            #print(self.opti.stats()['return_status'])
 
             sol_q = self.opti.value(self.var_q)
             self.smooth_filter.add_data(sol_q)

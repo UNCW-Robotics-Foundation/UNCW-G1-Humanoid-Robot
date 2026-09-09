@@ -98,14 +98,14 @@ class G1_29_ArmIK:
                 pin.Frame('L_ee',
                           self.reduced_robot.model.getJointId('left_wrist_yaw_joint'),
                           pin.SE3(np.eye(3),
-                                  np.array([0.05,0,0]).T),
+                                  np.array([0.075,0,0]).T),
                           pin.FrameType.OP_FRAME)
             )
             self.reduced_robot.model.addFrame(
                 pin.Frame('R_ee',
                           self.reduced_robot.model.getJointId('right_wrist_yaw_joint'),
                           pin.SE3(np.eye(3),
-                                  np.array([0.05,0,0]).T),
+                                  np.array([0.075,0,0]).T),
                           pin.FrameType.OP_FRAME)
             )
             # Save cache (only after everything is built)
@@ -245,8 +245,8 @@ class G1_29_ArmIK:
             # sol = self.opti.solve_limited()
 
             sol_q = self.opti.value(self.var_q)
-            self.smooth_filter.add_data(sol_q)
-            sol_q = self.smooth_filter.filtered_data
+            # self.smooth_filter.add_data(sol_q)
+            # sol_q = self.smooth_filter.filtered_data
 
             if current_lr_arm_motor_dq is not None:
                 v = current_lr_arm_motor_dq * 0.0
@@ -263,8 +263,8 @@ class G1_29_ArmIK:
             logger_mp.error(f"ERROR in convergence, plotting debug info.{e}")
 
             sol_q = self.opti.debug.value(self.var_q)
-            self.smooth_filter.add_data(sol_q)
-            sol_q = self.smooth_filter.filtered_data
+            # self.smooth_filter.add_data(sol_q)
+            # sol_q = self.smooth_filter.filtered_data
 
             if current_lr_arm_motor_dq is not None:
                 v = current_lr_arm_motor_dq * 0.0
