@@ -62,9 +62,17 @@ ament_target_dependencies(g1_ik_arms ${DEPENDENCY_LIST})
 add_executable(g1_lowcmd_ik_arms src/g1_lowcmd_ik_arms.cpp src/common/motor_crc_hg.cpp)
 ament_target_dependencies(g1_lowcmd_ik_arms ${DEPENDENCY_LIST})
 
+add_executable(g1_lowcmd_ik_arms_v2 src/g1_lowcmd_ik_arms_v2.cpp src/common/motor_crc_hg.cpp)
+ament_target_dependencies(g1_lowcmd_ik_arms_v2 ${DEPENDENCY_LIST})
+
+add_executable(g1_lowcmd_ik_arms_v3 src/g1_lowcmd_ik_arms_v3.cpp src/common/motor_crc_hg.cpp)
+ament_target_dependencies(g1_lowcmd_ik_arms_v3 ${DEPENDENCY_LIST})
+
 install(TARGETS g1_tele_controller)
 install(TARGETS g1_ik_arms)
 install(TARGETS g1_lowcmd_ik_arms)
+install(TARGETS g1_lowcmd_ik_arms_v2)
+install(TARGETS g1_lowcmd_ik_arms_v3)
 
 install(
 DIRECTORY launch
@@ -79,6 +87,7 @@ ament_python_install_package(${PROJECT_NAME})
 
 install(PROGRAMS
 	scripts/g1_tele_middle.py
+	scripts/g1_tele_middle_v2.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

@@ -40,30 +40,12 @@ std::array<G1Arm7JointIndex, NUM_ARM_JOINTS> arm_joints_ = {
     G1Arm7JointIndex::RIGHT_WRIST_YAW};
 
 // Stiffness for all G1 Joints
-// const std::array<float, 29> Kp{
-//     60, 60, 60, 100, 40, 40,      // legs
-//     60, 60, 60, 100, 40, 40,      // legs
-//     60, 40, 40,                   // waist
-//     40, 40, 40, 40,  40, 40, 40,  // arms
-//     40, 40, 40, 40,  40, 40, 40   // arms
-// };
-
-// // Damping for all G1 Joints
-// const std::array<float, 29> Kd{
-//     1, 1, 1, 2, 1, 1,     // legs
-//     1, 1, 1, 2, 1, 1,     // legs
-//     1, 1, 1,              // waist
-//     1, 1, 1, 1, 1, 1, 1,  // arms
-//     1, 1, 1, 1, 1, 1, 1   // arms
-// };
-
-// Stiffness for all G1 Joints
 const std::array<float, 29> Kp{
     60, 60, 60, 100, 40, 40,      // legs
     60, 60, 60, 100, 40, 40,      // legs
     60, 40, 40,                   // waist
-    30.0, 30.0, 30.0, 20.0, 3.0, 3.0, 3.0,  // arms
-    30.0, 30.0, 30.0, 20.0, 3.0, 3.0, 3.0   // arms
+    40, 40, 40, 40,  40, 40, 40,  // arms
+    40, 40, 40, 40,  40, 40, 40   // arms
 };
 
 // Damping for all G1 Joints
@@ -71,8 +53,8 @@ const std::array<float, 29> Kd{
     1, 1, 1, 2, 1, 1,     // legs
     1, 1, 1, 2, 1, 1,     // legs
     1, 1, 1,              // waist
-    1.25, 1.25, 1.25, 0.75, 1.0, 1.0, 1.0,  // arms
-    1.25, 1.25, 1.25, 0.75, 1.0, 1.0, 1.0   // arms
+    1, 1, 1, 1, 1, 1, 1,  // arms
+    1, 1, 1, 1, 1, 1, 1   // arms
 };
 
  public:
@@ -99,7 +81,7 @@ const std::array<float, 29> Kd{
                 [this](const sensor_msgs::msg::Joy::SharedPtr data) {
                 JoyHandler(data);
                 });
-    timer_ = this->create_wall_timer(std::chrono::milliseconds(10),
+    timer_ = this->create_wall_timer(std::chrono::milliseconds(30),
                                       [this] { IkLoop(); });
   }
 
@@ -134,19 +116,13 @@ const std::array<float, 29> Kd{
   const float kd_low = 3.0;
   const float kp_wrist = 40.0;
   const float kd_wrist = 1.5;
-  const std::array<float, 7> kp_arm = {30.0, 30.0, 30.0, 20.0, 3.0, 3.0, 3.0};
-  const std::array<float, 7> kd_arm = {1.25, 1.25, 1.25, 0.75, 1.0, 1.0, 1.0};
-  // const std::array<float, 7> kp_arm = {35.0, 35.0, 35.0, 25.0, 4.0, 4.0, 4.0}; // max
-  // const std::array<float, 7> kd_arm = {1.5, 1.5, 1.5, 1.0, 0.2, 0.2, 0.2};     // max
-  // const std::array<float, 7> kp_arm = {20.0, 20.0, 20.0, 15.0, 1.5, 1.5, 1.5}; // min
-  // const std::array<float, 7> kd_arm = {0.8, 0.8, 0.8, 0.5, 0.05, 0.05, 0.05};     // min
 
   bool btn_flag = false;
   bool init_flag = false;
   bool state_flag = false;
   bool stop_flag = false;
   bool ik_pub_flag = false;
-  bool first_ik_flag = true;
+  bool first_ik_flag = false;
   bool e_stop = false;
 
   float move_duration_ = 3.0F;
@@ -177,7 +153,8 @@ const std::array<float, 29> Kd{
 
     if (!first_ik_flag) {
       for (int i = 0; i < 14; i++) {
-        ik_init_error[i] = ik_sol.motor_states[i].q;
+        // ik_init_error[i] = ik_sol.motor_states[i].q;
+        ik_init_error[i] = 0.0;
         RCLCPP_INFO(this->get_logger(), "Joint %i int error: %f", i, ik_init_error[i]);
         first_ik_flag = true;
       }
@@ -185,21 +162,18 @@ const std::array<float, 29> Kd{
 
 
     for (int i = 15; i < 29; ++i) {
-      final_cmd.motor_cmd[i].q = ik_sol.motor_states[i-15].q;
-      //final_cmd.motor_cmd[i].q = ik_sol.motor_states[i-15].q - ik_init_error[i-15];
+      final_cmd.motor_cmd[i].q = ik_sol.motor_states[i-15].q - ik_init_error[i-15];
       final_cmd.motor_cmd[i].dq = 0.0F;
       final_cmd.motor_cmd[i].tau = ik_sol.motor_states[i-15].dq;
       //final_cmd.motor_cmd[i].tau = 0.0F;
       //cmd.motor_cmd[i].mode = 1;
-      // if (((i >= 19) && (i <= 21)) || (i >= 26)) {
-      //   final_cmd.motor_cmd[i].kp = kp_wrist;
-      //   final_cmd.motor_cmd[i].kd = kd_wrist;
-      // } else {
-      //   final_cmd.motor_cmd[i].kp = kp_low;
-      //   final_cmd.motor_cmd[i].kd = kd_low;
-      // }
-      final_cmd.motor_cmd[i].kp = kp_arm[(i - 15) % 7];
-      final_cmd.motor_cmd[i].kd = kd_arm[(i - 15) % 7];
+      if (((i >= 19) && (i <= 21)) || (i >= 26)) {
+        final_cmd.motor_cmd[i].kp = kp_wrist;
+        final_cmd.motor_cmd[i].kd = kd_wrist;
+      } else {
+        final_cmd.motor_cmd[i].kp = kp_low;
+        final_cmd.motor_cmd[i].kd = kd_low;
+      }
 
     }
 
@@ -257,7 +231,6 @@ const std::array<float, 29> Kd{
       cmd_pub_->publish(zero_cmd);
     }
     else if ((first_ik_flag) && (ik_pub_flag) && (!e_stop)) {
-      //RCLCPP_INFO(this->get_logger(), "joint 15 q: %f", final_cmd.motor_cmd[15].q);
       get_crc(final_cmd);
       cmd_pub_->publish(final_cmd);
     }
