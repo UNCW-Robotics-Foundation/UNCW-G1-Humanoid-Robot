@@ -229,6 +229,21 @@ class G1_29_ArmIK:
         robot_right_pose[:3, 3] *= scale_factor
         return robot_left_pose, robot_right_pose
 
+    def get_fk_l(self, current_lr_arm_motor_q):
+        pin.forwardKinematics(self.reduced_robot.model, self.reduced_robot.data, current_lr_arm_motor_q)
+        pin.updateFramePlacements(self.reduced_robot.model, self.reduced_robot.data)
+        t = self.reduced_robot.data.oMf[self.L_hand_id].translation
+        r = self.reduced_robot.data.oMf[self.L_hand_id].rotation
+        q = pin.Quaternion(r)
+        return t, r, q
+
+    def get_fk_r(self, current_lr_arm_motor_q):
+        pin.forwardKinematics(self.reduced_robot.model, self.reduced_robot.data, current_lr_arm_motor_q)
+        pin.updateFramePlacements(self.reduced_robot.model, self.reduced_robot.data)
+        t = self.reduced_robot.data.oMf[self.R_hand_id].translation
+        r = self.reduced_robot.data.oMf[self.R_hand_id].rotation
+        return t, r
+
     def solve_ik(self, left_wrist, right_wrist, current_lr_arm_motor_q = None, current_lr_arm_motor_dq = None):
         if current_lr_arm_motor_q is not None:
             self.init_data = current_lr_arm_motor_q

@@ -7,7 +7,7 @@ from tf2_ros.transform_listener import TransformListener
 from tf2_ros.buffer import Buffer
 from tf2_ros import TransformException
 import numpy as np
-from g1_ik.robot_arm_ik_v3 import G1_29_ArmIK
+from g1_ik.robot_arm_ik_v2 import G1_29_ArmIK
 from sensor_msgs.msg import Joy
 from trajectory_msgs.msg import JointTrajectoryPoint
 import logging_mp
