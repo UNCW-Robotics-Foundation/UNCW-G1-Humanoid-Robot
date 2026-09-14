@@ -1,0 +1,13 @@
+float32 shoulder_pitch
+float32 elbow_angle
+float32 elbow_error
+float32 elbow_tau
+float32 wrist_roll_angle
+float32 wrist_roll_error
+float32 wrist_roll_tau
+float32 wrist_pitch_angle
+float32 wrist_pitch_error
+float32 wrist_pitch_tau
+float32 wrist_yaw_angle
+float32 wrist_yaw_error
+float32 wrist_yaw_tau

@@ -13,6 +13,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/ArmStates.msg"
   "msg/MotorState.msg"
   "msg/DebugData.msg"
+  "msg/G1ArmDebug.msg"
   "msg/G1Debug.msg"
   "msg/G1JointsDebug.msg"
 )
