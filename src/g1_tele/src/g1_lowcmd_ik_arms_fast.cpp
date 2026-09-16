@@ -14,6 +14,7 @@
 #include "geometry_msgs/msg/transform_stamped.hpp"
 #include "sensor_msgs/msg/joy.hpp"
 #include "sensor_msgs/msg/joint_state.hpp"
+#include "std_msgs/msg/bool.hpp"
 #include "motor_crc_hg.h"
 #include "ruckig/ruckig.hpp"
 #include <cmath>
@@ -126,6 +127,7 @@ static constexpr double max_j = 1.5;
     dbg_pub_ = this->create_publisher<g1_msgs::msg::G1Debug>("/main_dbg/lil", 10);
     dbg_pub2_ = this->create_publisher<g1_msgs::msg::DebugData>("/main_dbg/big", 10);
     dbg_pub3_ = this->create_publisher<g1_msgs::msg::G1ArmDebug>("/main_dbg/arm", 10);
+    ruckig_state_pub_ = this->create_publisher<std_msgs::msg::Bool>("/ruckig_state", 10);
     lowstate_sub_ = this->create_subscription<LowState>(
         "/lowstate", 10,
         [this](const LowState::SharedPtr msg) { StateCallback(msg); });
@@ -154,11 +156,12 @@ static constexpr double max_j = 1.5;
   rclcpp::Publisher<g1_msgs::msg::G1Debug>::SharedPtr dbg_pub_;
   rclcpp::Publisher<g1_msgs::msg::DebugData>::SharedPtr dbg_pub2_;
   rclcpp::Publisher<g1_msgs::msg::G1ArmDebug>::SharedPtr dbg_pub3_;
+  rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr ruckig_state_pub_;
   rclcpp::Subscription<LowState>::SharedPtr lowstate_sub_;
   rclcpp::Subscription<g1_msgs::msg::ArmStates>::SharedPtr ik_sub_;
+  rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr joy_suber_; 
   std::thread thread_;
   rclcpp::TimerBase::SharedPtr timer_;
-  rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr joy_suber_; 
 
   LowState last_state_;
   g1_msgs::msg::ArmStates ik_sol;
@@ -213,6 +216,8 @@ static constexpr double max_j = 1.5;
   bool initialized_ = false;
   bool have_measured_state_ = false;
 
+  std_msgs::msg::Bool ruckig_status;
+
   void StateCallback(const LowState::SharedPtr msg) {
     last_state_ = *msg;
     state_flag = true;
@@ -251,6 +256,7 @@ static constexpr double max_j = 1.5;
     if (!first_ik_flag) {
       for (int i = 0; i < 7; i++) {
         input_.current_position[i] = ik_sol.motor_states[i].q;
+        //input_.current_position[i] = last_state_.motor_state[15 + i].q;
       }
       first_ik_flag = true;
     }
@@ -264,6 +270,7 @@ static constexpr double max_j = 1.5;
       // final_cmd.motor_cmd[i].q = ik_sol.motor_states[i-15].q;
       // final_cmd.motor_cmd[i].dq = 0.0F;
       final_cmd.motor_cmd[i].tau = ik_sol.motor_states[i-15].dq;
+      //final_cmd.motor_cmd[i].tau = 0.0F;
       // final_cmd.motor_cmd[i].kp = kp_arm[(i - 15) % 7];
       // final_cmd.motor_cmd[i].kd = kd_arm[(i - 15) % 7];
     }
@@ -335,6 +342,7 @@ static constexpr double max_j = 1.5;
 
         }
         new_target_ = false;
+        ruckig_status.data = true;
       }
     }
 
@@ -344,11 +352,15 @@ static constexpr double max_j = 1.5;
     if (res != Result::Working && res != Result::Finished) {
       RCLCPP_ERROR(get_logger(), "Ruckig update failed (code %d)", static_cast<int>(res));
       return;
+    } else if (res == Result::Finished) {
+      RCLCPP_INFO(this->get_logger(), "Robot main trajectory finished");
+      ruckig_status.data = false;
     }
 
     output_.pass_to_input(input_);
 
     PublishCommand();
+    ruckig_state_pub_->publish(ruckig_status);
     
     
     // if ((!first_ik_flag) && (ik_pub_flag) && (!e_stop)) {

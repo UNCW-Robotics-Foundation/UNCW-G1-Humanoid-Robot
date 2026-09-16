@@ -21,6 +21,7 @@
   <depend>rclpy</depend>
   <depend>std_msgs</depend>
   <depend>rosbag2_cpp</depend>
+  <depend>sensor_msgs_py</depend>
   <depend>tf2</depend>
   <depend>tf2_ros</depend>
   <depend>ruckig</depend>

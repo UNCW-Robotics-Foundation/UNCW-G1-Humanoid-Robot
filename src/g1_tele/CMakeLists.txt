@@ -94,6 +94,7 @@ install(PROGRAMS
 	scripts/g1_tele_middle.py
 	scripts/g1_tele_middle_v2.py
 	scripts/g1_tele_pen.py
+	scripts/g1_tele_plan.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
