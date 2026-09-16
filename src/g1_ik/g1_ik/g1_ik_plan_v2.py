@@ -1,14 +1,15 @@
 import rclpy
 from rclpy.node import Node
-from g1_msgs.msg import ArmStates, MotorState, DebugData
+from g1_msgs.msg import ArmStates, MotorState, DebugData, G1Plan, G1Point
 from tf2_ros.transform_listener import TransformListener
 from tf2_ros.buffer import Buffer
 from tf2_ros import TransformException, TransformBroadcaster
 import numpy as np
-from g1_ik.robot_arm_ik_v3 import G1_29_ArmIK
+from g1_ik.robot_arm_ik_sim_plan import G1_29_ArmIK
 from sensor_msgs.msg import Joy
-from geometry_msgs.msg import TransformStamped
 from trajectory_msgs.msg import JointTrajectoryPoint
+from geometry_msgs.msg import TransformStamped
+from std_msgs.msg import Bool
 import logging_mp
 from scipy.spatial.transform import Rotation as R
 logger_mp = logging_mp.getLogger(__name__)
@@ -51,28 +52,33 @@ class MinimalSubscriber(Node):
             self.listener_callback,
             10)
         self.joy_sub = self.create_subscription(
-                    Joy,
-                    'joy',
-                    self.joy_callback,
-                    10)
+            Joy,
+            'joy',
+            self.joy_callback,
+            10)
         self.traj_sub = self.create_subscription(
-                    JointTrajectoryPoint,
-                    'joint/trajectory_point',
-                    self.traj_callback,
-                    10)
-        self.joy_sub
-        self.traj_sub
-        self.subscription  # prevent unused variable warning
+            JointTrajectoryPoint,
+            'joint/trajectory_point',
+            self.traj_callback,
+            10)
+        self.plan_sub = self.create_subscription(
+            G1Plan,
+            'joint/plan',
+            self.plan_callback,
+            10)
+        self.ruckig_sub = self.create_subscription(
+            Bool,
+            'ruckig_state',
+            self.ruckig_callback,
+            10)
         self.ik_pub = self.create_publisher(
-                    ArmStates,
-                    'ik_sol',
-                    10)
-        self.ik_pub
+            ArmStates,
+            'ik_sol',
+            10)
         self.debug_pub = self.create_publisher(
-                    DebugData,
-                    'ik_debug',
-                    10)
-        self.debug_pub
+            DebugData,
+            'ik_debug',
+            10)
 
         self.matrix = sim_l
         self.matrix_default = sim_r
@@ -81,12 +87,18 @@ class MinimalSubscriber(Node):
         self.initial_z = sim_l[2, 3]
 
         self.count = 0
+        self.plan = G1Plan()
+        self.point_tracker = 0
 
         self.frame_flag = False
         self.robot_flag = False
         self.btn_flag = False
         #self.traj_flag = False
         self.get_pin_fk = True
+        self.has_plan = False
+        self.ruckig_state = False
+        self.solve_ik_once = False
+        self.ik_helper_flag = True
 
         self.current_arms = ArmStates()
         self.current_traj = JointTrajectoryPoint()
@@ -108,11 +120,22 @@ class MinimalSubscriber(Node):
             self.robot_flag = True
 
     def traj_callback(self, msg):
-            self.current_traj = msg
-            self.matrix[0, 3] = self.current_traj.positions[0] + self.initial_x
-            self.matrix[1, 3] = self.current_traj.positions[1] + self.initial_y
-            self.matrix[2, 3] = self.current_traj.positions[2] + self.initial_z
-            #self.traj_flag = True
+        self.current_traj = msg
+        self.matrix[0, 3] = self.current_traj.positions[0]
+        self.matrix[1, 3] = self.current_traj.positions[1]
+        self.matrix[2, 3] = self.current_traj.positions[2]
+        #self.traj_flag = True
+    
+    def plan_callback(self, msg: G1Plan):
+        self.has_plan = True
+        self.plan = msg
+
+    def ruckig_callback(self, msg: Bool):
+        self.ruckig_state = msg.data
+        if (not msg.data) and (self.ik_helper_flag):
+            self.solve_ik_once = True
+        if (msg.data) and (not self.ik_helper_flag):
+            self.ik_helper_flag = True
 
     def joy_callback(self, msg):
         if (self.btn_flag):
@@ -177,11 +200,11 @@ class MinimalSubscriber(Node):
 
             if self.robot_flag:
                 pin_t, pin_r, pin_q = self.arm_ik.get_fk_l(np.array([ joint.q for joint in self.current_arms.motor_states]))
-                print("Translation:", pin_t)
-                print("Rotation:")
-                print(pin_r)
-                print(pin_q)
-                print()
+                # print("Translation:", pin_t)
+                # print("Rotation:")
+                # print(pin_r)
+                # print(pin_q)
+                # print()
 
                 frame = TransformStamped()
                 frame.header.stamp = self.get_clock().now().to_msg()
@@ -195,37 +218,53 @@ class MinimalSubscriber(Node):
                 frame.transform.rotation.z = pin_q[2]
                 frame.transform.rotation.w = pin_q[3]
                 self.tf_broadcaster.sendTransform(frame)
-
+                
                 if self.get_pin_fk:
                     self.get_pin_fk = False
                     self.set_matrix(pin_t, pin_r, 0)
                     r_pin_t, r_pin_r = self.arm_ik.get_fk_r(np.array([ joint.q for joint in self.current_arms.motor_states]))
                     self.set_matrix(r_pin_t, r_pin_r, 1)
                 #time_start = time.time()
-                sol_q, sol_tauff  = self.arm_ik.solve_ik(self.matrix, self.matrix_default, np.array([ joint.q for joint in self.current_arms.motor_states]), np.array([ joint.dq for joint in self.current_arms.motor_states]))
+                #sol_q, sol_tauff  = self.arm_ik.solve_ik(self.matrix, self.matrix_default, np.array([ joint.q for joint in self.current_arms.motor_states]), np.array([ joint.dq for joint in self.current_arms.motor_states]))
                 #sol_q, sol_tauff  = self.arm_ik.solve_ik(self.matrix, self.matrix_default, np.array([ joint.q for joint in self.current_arms.motor_states]), np.array([ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]))
                 #time_end = time.time()
                 #self.get_logger().info("IK Solve Time: " + str((time_end - time_start))
-                
-                new_arms = ArmStates()
-                tmp_arms = []
-                for i in range(14):
-                    tmp_motor = MotorState()
-                    tmp_motor.q = sol_q[i]
-                    tmp_motor.dq = sol_tauff[i]
-                    tmp_arms.append(tmp_motor)
-                new_arms.motor_states = tmp_arms
-                #self.get_logger().info('publishing ik solutions')
-                self.ik_pub.publish(new_arms)
-                #print(self.matrix)
-                if self.count < 15:
-                    self.count += 1
-                    #print("solution", self.count - 6, " before publishing:", sol_q[0])
-                else:
+                if not self.has_plan:
+                    sol_q, sol_tauff  = self.arm_ik.solve_ik(self.matrix, self.matrix_default, np.array([ joint.q for joint in self.current_arms.motor_states]), np.array([ joint.dq for joint in self.current_arms.motor_states]))
+                    new_arms = ArmStates()
+                    tmp_arms = []
+                    for i in range(14):
+                        tmp_motor = MotorState()
+                        tmp_motor.q = sol_q[i]
+                        tmp_motor.dq = sol_tauff[i]
+                        tmp_arms.append(tmp_motor)
+                    new_arms.motor_states = tmp_arms
                     self.ik_pub.publish(new_arms)
-                    if self.count < 25:
-                        #print("solution", self.count - 15, " after publishing:", sol_q[0])
-                        self.count += 1
+                elif (self.solve_ik_once) and (self.ik_helper_flag) and (not self.ruckig_state) and (self.has_plan):
+                    if self.point_tracker < len(self.plan.plan):
+                        self.plan_helper()
+                        self.solve_ik_once = False
+                        self.ik_helper_flag = False
+                        sol_q, sol_tauff  = self.arm_ik.solve_ik(self.matrix, self.matrix_default, np.array([ joint.q for joint in self.current_arms.motor_states]), np.array([ joint.dq for joint in self.current_arms.motor_states]))
+                        new_arms = ArmStates()
+                        tmp_arms = []
+                        for i in range(14):
+                            tmp_motor = MotorState()
+                            tmp_motor.q = sol_q[i]
+                            tmp_motor.dq = sol_tauff[i]
+                            tmp_arms.append(tmp_motor)
+                        new_arms.motor_states = tmp_arms
+                        self.ik_pub.publish(new_arms)
+
+                #print(self.matrix)
+                # if self.count < 15:
+                #     self.count += 1
+                    #p rint("solution", self.count - 6, " before publishing:", sol_q[0])
+                # else:
+                #     self.ik_pub.publish(new_arms)
+                #     if self.count < 25:
+                        # print("solution", self.count - 15, " after publishing:", sol_q[0])
+                        # self.count += 1
 
         except TransformException as ex:
             self.get_logger().info(
@@ -276,6 +315,16 @@ class MinimalSubscriber(Node):
             return x - y
         else :
             return y - x
+
+    def plan_helper(self):
+        self.matrix[0, 3] = self.plan.plan[self.point_tracker].x
+        self.matrix[1, 3] = self.plan.plan[self.point_tracker].y
+        self.matrix[2, 3] = self.plan.plan[self.point_tracker].z
+        self.point_tracker += 1
+        if self.point_tracker < len(self.plan.plan):
+            print("Moving to point", self.point_tracker)
+        else:
+            print("Moving to final point")
 
 def main(args=None):
     rclpy.init(args=args)

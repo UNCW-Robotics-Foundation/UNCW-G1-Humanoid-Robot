@@ -7,8 +7,8 @@ from tf2_ros import TransformException, TransformBroadcaster
 import numpy as np
 from g1_ik.robot_arm_ik_v3 import G1_29_ArmIK
 from sensor_msgs.msg import Joy
-from geometry_msgs.msg import TransformStamped
 from trajectory_msgs.msg import JointTrajectoryPoint
+from geometry_msgs.msg import TransformStamped
 import logging_mp
 from scipy.spatial.transform import Rotation as R
 logger_mp = logging_mp.getLogger(__name__)
@@ -109,9 +109,9 @@ class MinimalSubscriber(Node):
 
     def traj_callback(self, msg):
             self.current_traj = msg
-            self.matrix[0, 3] = self.current_traj.positions[0] + self.initial_x
-            self.matrix[1, 3] = self.current_traj.positions[1] + self.initial_y
-            self.matrix[2, 3] = self.current_traj.positions[2] + self.initial_z
+            self.matrix[0, 3] = self.current_traj.positions[0]
+            self.matrix[1, 3] = self.current_traj.positions[1]
+            self.matrix[2, 3] = self.current_traj.positions[2]
             #self.traj_flag = True
 
     def joy_callback(self, msg):
@@ -195,7 +195,7 @@ class MinimalSubscriber(Node):
                 frame.transform.rotation.z = pin_q[2]
                 frame.transform.rotation.w = pin_q[3]
                 self.tf_broadcaster.sendTransform(frame)
-
+                
                 if self.get_pin_fk:
                     self.get_pin_fk = False
                     self.set_matrix(pin_t, pin_r, 0)

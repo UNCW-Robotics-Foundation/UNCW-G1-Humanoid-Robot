@@ -30,6 +30,8 @@ setup(
         	'g1_ik_controller = g1_ik.g1_ik_controller:main',
         	'g1_ik_controller_v2 = g1_ik.g1_ik_controller_v2:main',
         	'g1_ik_controller_v3 = g1_ik.g1_ik_controller_v3:main',
+        	'g1_ik_plan = g1_ik.g1_ik_plan:main',
+        	'g1_ik_plan_v2 = g1_ik.g1_ik_plan_v2:main',
         	'robot_arm_ik = g1_ik.robot_arm_ik:main',
         	'robot_arm_ik_v2 = g1_ik.robot_arm_ik_v2:main',
         	'robot_arm_ik_v3 = g1_ik.robot_arm_ik_v3:main',

@@ -151,7 +151,7 @@ class G1_29_ArmIK:
             'ipopt.tol': 1e-4,
             'ipopt.acceptable_tol': 5e-4,
             'ipopt.acceptable_iter': 5,
-            'ipopt.warm_start_init_point': 'yes',
+            'ipopt.warm_start_init_point': 'no',
             'ipopt.derivative_test': 'none',
             'ipopt.jacobian_approximation': 'exact',
             # 'ipopt.hessian_approximation': 'limited-memory',
@@ -234,7 +234,7 @@ class G1_29_ArmIK:
             else:
                 v = (sol_q - self.init_data) * 0.0
 
-            self.init_data = sol_q
+            #self.init_data = sol_q
 
             sol_tauff = pin.rnea(self.reduced_robot.model, self.reduced_robot.data, sol_q, v, np.zeros(self.reduced_robot.model.nv))
 
@@ -252,7 +252,7 @@ class G1_29_ArmIK:
             else:
                 v = (sol_q - self.init_data) * 0.0
 
-            self.init_data = sol_q
+            #self.init_data = sol_q
 
             sol_tauff = pin.rnea(self.reduced_robot.model, self.reduced_robot.data, sol_q, v, np.zeros(self.reduced_robot.model.nv))
 
