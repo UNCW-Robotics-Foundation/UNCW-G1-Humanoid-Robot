@@ -87,15 +87,12 @@ const std::array<float, 29> Kd{
 static constexpr int DOF = 7;
 static constexpr double CONTROL_DT = 1.0 / 250.0;     // 250 Hz fast loop
 static constexpr double RESYNC_POS_TOLERANCE = 0.02;  // rad, per-joint
-static constexpr double max_v = 0.1;
-static constexpr double max_a = 0.2;
-static constexpr double max_j = 1.5;
+static constexpr double max_v = 0.05;   // plan:  0.05    pen:  0.5
+static constexpr double max_a = 0.1;    //        0.1          1.0
+static constexpr double max_j = 1.0;    //        1.0          2.0
 
  public:
   ArmLowLevelController() : Node("arm_lowlevel_controller"), otg_(CONTROL_DT) {
-    // declare_parameter<std::vector<double>>("max_velocity",     {3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0});
-    // declare_parameter<std::vector<double>>("max_acceleration", {8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0});
-    // declare_parameter<std::vector<double>>("max_jerk",         {40.0, 40.0, 40.0, 40.0, 40.0, 40.0, 40.0});
     declare_parameter<std::vector<double>>("max_velocity",     {max_v, max_v, max_v, max_v, max_v, max_v, max_v});
     declare_parameter<std::vector<double>>("max_acceleration", {max_a, max_a, max_a, max_a, max_a, max_a, max_a});
     declare_parameter<std::vector<double>>("max_jerk",         {max_j, max_j, max_j, max_j, max_j, max_j, max_j});
@@ -217,6 +214,7 @@ static constexpr double max_j = 1.5;
   bool have_measured_state_ = false;
 
   std_msgs::msg::Bool ruckig_status;
+  std::array<float, 10> ruckig_data_que = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 
   void StateCallback(const LowState::SharedPtr msg) {
     last_state_ = *msg;
@@ -353,7 +351,7 @@ static constexpr double max_j = 1.5;
       RCLCPP_ERROR(get_logger(), "Ruckig update failed (code %d)", static_cast<int>(res));
       return;
     } else if (res == Result::Finished) {
-      RCLCPP_INFO(this->get_logger(), "Robot main trajectory finished");
+      //RCLCPP_INFO(this->get_logger(), "Robot main trajectory finished");
       ruckig_status.data = false;
     }
 
@@ -399,6 +397,10 @@ static constexpr double max_j = 1.5;
         input_.current_velocity[i] = meas_vel[i];
       }
     }
+  }
+
+  void calc_state() {
+    
   }
 
   void PublishCommand() {
