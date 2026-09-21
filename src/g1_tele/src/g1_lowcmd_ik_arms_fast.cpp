@@ -124,7 +124,7 @@ static constexpr double max_j = 1.0;    //        1.0          2.0
     dbg_pub_ = this->create_publisher<g1_msgs::msg::G1Debug>("/main_dbg/lil", 10);
     dbg_pub2_ = this->create_publisher<g1_msgs::msg::DebugData>("/main_dbg/big", 10);
     dbg_pub3_ = this->create_publisher<g1_msgs::msg::G1ArmDebug>("/main_dbg/arm", 10);
-    ruckig_state_pub_ = this->create_publisher<std_msgs::msg::Bool>("/ruckig_state", 10);
+    //ruckig_state_pub_ = this->create_publisher<std_msgs::msg::Bool>("/ruckig_state", 10);
     lowstate_sub_ = this->create_subscription<LowState>(
         "/lowstate", 10,
         [this](const LowState::SharedPtr msg) { StateCallback(msg); });
@@ -142,8 +142,7 @@ static constexpr double max_j = 1.0;    //        1.0          2.0
                 [this](const sensor_msgs::msg::Joy::SharedPtr data) {
                 JoyHandler(data);
                 });
-    // timer_ = this->create_wall_timer(std::chrono::milliseconds(10),
-    //                                   [this] { ControlLoop(); });
+
     timer_ = create_wall_timer(std::chrono::duration<double>(CONTROL_DT), std::bind(&ArmLowLevelController::ControlLoop, this));
   }
 
@@ -153,7 +152,7 @@ static constexpr double max_j = 1.0;    //        1.0          2.0
   rclcpp::Publisher<g1_msgs::msg::G1Debug>::SharedPtr dbg_pub_;
   rclcpp::Publisher<g1_msgs::msg::DebugData>::SharedPtr dbg_pub2_;
   rclcpp::Publisher<g1_msgs::msg::G1ArmDebug>::SharedPtr dbg_pub3_;
-  rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr ruckig_state_pub_;
+  //rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr ruckig_state_pub_;
   rclcpp::Subscription<LowState>::SharedPtr lowstate_sub_;
   rclcpp::Subscription<g1_msgs::msg::ArmStates>::SharedPtr ik_sub_;
   rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr joy_suber_; 
@@ -213,7 +212,7 @@ static constexpr double max_j = 1.0;    //        1.0          2.0
   bool initialized_ = false;
   bool have_measured_state_ = false;
 
-  std_msgs::msg::Bool ruckig_status;
+  // std_msgs::msg::Bool ruckig_status;
   std::array<float, 10> ruckig_data_que = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 
   void StateCallback(const LowState::SharedPtr msg) {
@@ -340,7 +339,7 @@ static constexpr double max_j = 1.0;    //        1.0          2.0
 
         }
         new_target_ = false;
-        ruckig_status.data = true;
+        // ruckig_status.data = true;
       }
     }
 
@@ -352,23 +351,14 @@ static constexpr double max_j = 1.0;    //        1.0          2.0
       return;
     } else if (res == Result::Finished) {
       //RCLCPP_INFO(this->get_logger(), "Robot main trajectory finished");
-      ruckig_status.data = false;
+      // ruckig_status.data = false;
     }
 
     output_.pass_to_input(input_);
 
     PublishCommand();
-    ruckig_state_pub_->publish(ruckig_status);
-    
-    
-    // if ((!first_ik_flag) && (ik_pub_flag) && (!e_stop)) {
-    //   get_crc(zero_cmd);
-    //   cmd_pub_->publish(zero_cmd);
-    // }
-    // else if ((first_ik_flag) && (ik_pub_flag) && (!e_stop)) {
-    //   get_crc(final_cmd);
-    //   cmd_pub_->publish(final_cmd);
-    // }
+    // ruckig_state_pub_->publish(ruckig_status);
+
   }
 
   void MaybeResync() {

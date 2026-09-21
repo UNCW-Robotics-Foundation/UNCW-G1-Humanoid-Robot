@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 Geomagic Touch pen node that reads pen pose and publishes it to a topic that the inverse
-kinematics solver will use
+kinematics solver will use. Since main node is de-coupled with a Ruckig generator, robot movements
+may lag behind pen movements depending on main node speed limits.
 """
 
 import rclpy
@@ -11,9 +12,9 @@ from trajectory_msgs.msg import JointTrajectoryPoint
 from sensor_msgs.msg import Joy
 
 
-class RuckigJointTrajectoryNode(Node):
+class G1TelePenNode(Node):
     def __init__(self):
-        super().__init__('ruckig_joint_trajectory_node')
+        super().__init__('g1_tele_pen_node')
 
         self.dt = 1.0 / 10.0
 
@@ -44,7 +45,7 @@ class RuckigJointTrajectoryNode(Node):
         self.current_pen_z = msg.pose.position.z
 
     def joy_callback(self, msg: Joy):
-        if (msg.buttons[6] == 1) and (not self.tele_start):
+        if (msg.buttons[6] == 1) and (not self.tele_start): # Start (3 lines)
             self.init_x = self.current_pen_x
             self.init_y = self.current_pen_y
             self.init_z = self.current_pen_z
@@ -62,7 +63,7 @@ class RuckigJointTrajectoryNode(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = RuckigJointTrajectoryNode()
+    node = G1TelePenNode()
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:

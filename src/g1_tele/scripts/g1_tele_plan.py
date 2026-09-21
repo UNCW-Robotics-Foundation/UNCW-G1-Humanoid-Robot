@@ -1,21 +1,8 @@
 #!/usr/bin/env python3
 """
-Single-joint jerk-limited trajectory generator using Ruckig, integrated with ROS 2.
-
-Subscribes to a target position on 'joint/target_position' (std_msgs/Float64)
-and streams jerk-limited trajectory points on 'joint/trajectory_point'
-(trajectory_msgs/JointTrajectoryPoint) at a fixed control-loop rate.
-
-Install ruckig first:
-    pip install ruckig
-
-Run:
-    ros2 run <your_package> ruckig_joint_trajectory_node
-    # or directly:
-    python3 ruckig_joint_trajectory_node.py
-
-Send a target:
-    ros2 topic pub --once /joint/target_position geometry_msgs/msg/Point "{x: 0.1, y: 0.0, z: 0.0}"
+G1 arm plan node that generates a path to each point using Ruckig. Subscribes to /clicked_point 
+from Rviz2 for points. Subscribes to /joy for commands. Publishes path to /joint/trajectory_point.
+Publishes plan pointcloud data to /joint/plan_dbg. Publishes plan points to /joint/plan.
 """
 
 import rclpy
@@ -26,7 +13,7 @@ from tf2_ros import TransformException
 from geometry_msgs.msg import PointStamped
 from sensor_msgs.msg import PointCloud2, PointField
 from sensor_msgs_py import point_cloud2
-from std_msgs.msg import Header, Bool
+from std_msgs.msg import Header
 from trajectory_msgs.msg import JointTrajectoryPoint
 from sensor_msgs.msg import Joy
 from g1_msgs.msg import G1Plan, G1Point
@@ -34,9 +21,9 @@ from g1_msgs.msg import G1Plan, G1Point
 from ruckig import InputParameter, OutputParameter, Result, Ruckig
 
 
-class RuckigJointTrajectoryNode(Node):
+class RuckigPlanNode(Node):
     def __init__(self):
-        super().__init__('ruckig_joint_trajectory_node')
+        super().__init__('ruckig_plan_node')
 
         # ---- Parameters (tune to your joint's actual limits) ----
         self.declare_parameter('joint_name', 'joint_1')
@@ -68,8 +55,6 @@ class RuckigJointTrajectoryNode(Node):
 
         self._has_plan = False
         self._init_frame = True
-        self._ruckig_state = True
-        self.waiting_for_ruckig = False
         self._close_to_point = False
         self.print_wait_once = True
 
@@ -83,9 +68,6 @@ class RuckigJointTrajectoryNode(Node):
 
         self.joy_sub = self.create_subscription(
             Joy, 'joy', self.joy_callback, 10)
-
-        self.ruckig_sub = self.create_subscription(
-            Bool, 'ruckig_state', self.ruckig_callback, 10)
 
         self.point_pub = self.create_publisher(
             JointTrajectoryPoint, 'joint/trajectory_point', 10)
@@ -121,23 +103,14 @@ class RuckigJointTrajectoryNode(Node):
         self.get_logger().info(f'New plan point: x={msg.point.x:.4f}, y={msg.point.y:.4f}, z={msg.point.z+.15:.4f}')
 
     def joy_callback(self, msg: Joy):
-        if (msg.buttons[6] == 1) and (not self._has_plan):
-            # self.init_x = self.current_pen_x
-            # self.init_y = self.current_pen_y
-            # self.init_z = self.current_pen_z
+        if (msg.buttons[6] == 1) and (not self._has_plan):  # Start (3 lines)
             self.inp.target_position = [self.plan[self.current_point][0], self.plan[self.current_point][1], self.plan[self.current_point][2]]
             self.inp.target_velocity = [0.0, 0.0, 0.0]
             self.inp.target_acceleration = [0.0, 0.0, 0.0]
             self._has_plan = True
-            self.waiting_for_ruckig = False
             self.get_logger().info(f"Plan Started! ")
-        if (msg.buttons[4] == 1):
+        if (msg.buttons[4] == 1):                           # Select (2 windows)
             self.plan_pub.publish(self.plan_msg)
-
-    def ruckig_callback(self, msg: Bool):
-        if (self.waiting_for_ruckig) and (not msg.data):
-            self._ruckig_state = False
-            self.waiting_for_ruckig = False
 
     def update_loop(self):
         try:
@@ -160,6 +133,8 @@ class RuckigJointTrajectoryNode(Node):
             self.get_logger().info(
                 f'Could not find transform: {ex}')
             return
+
+        # poincloud2 object creation
         tmp_header = Header()
         tmp_header.stamp = self.get_clock().now().to_msg()
         tmp_header.frame_id = 'pelvis'
@@ -170,13 +145,17 @@ class RuckigJointTrajectoryNode(Node):
         ]
         pc2_msg = point_cloud2.create_cloud(tmp_header, fields, self.plan)
         self.dbg_plan_pub.publish(pc2_msg)
+
+        # Rest of controller waits until a plan is confirmed
         if not self._has_plan:
             return
 
         self.check_point(t_ee)
 
+        # Ruckig update
         result = self.otg.update(self.inp, self.out)
 
+        # Ruckig data to publishing topic data
         point = JointTrajectoryPoint()
         point.positions = list(self.out.new_position)
         point.velocities = list(self.out.new_velocity)
@@ -187,6 +166,8 @@ class RuckigJointTrajectoryNode(Node):
         # This is the standard Ruckig "online" pattern.
         self.out.pass_to_input(self.inp)
 
+        # Logic for handling plan with Ruckig and logging real to target error. After the plan finishes,
+        # the plan can be restarted with the correct controller input.
         if result == Result.Finished and self.current_point >= len(self.plan) - 1 and self._close_to_point:
             self._has_plan = False
             self.get_logger().info(f'Point {self.current_point} completed.')
@@ -201,10 +182,9 @@ class RuckigJointTrajectoryNode(Node):
             self.inp.target_velocity = [0.0, 0.0, 0.0]
             self.inp.target_acceleration = [0.0, 0.0, 0.0]
             self.print_wait_once = True
-            #self._ruckig_state = True
         elif result == Result.Finished and not self._close_to_point:
-            # if not self.waiting_for_ruckig:
-            #     self.waiting_for_ruckig = True
+            # Node would skip points since the main node is de-coupled. This ensures this node will
+            # not move onto the next one until the robot gets close enough.
             if self.print_wait_once:
                 self.get_logger().info(f'Waiting on main ruckig...')
                 self.print_wait_once = False
@@ -212,11 +192,17 @@ class RuckigJointTrajectoryNode(Node):
             self.get_logger().error(
                 'Ruckig returned an error; check limits and target values.')
 
+    '''
+    Helper function for logging the deltas between the pinocchio end effector and target, the 
+    wrist and target, and the end effector and wrist. The end effector and wrist are compared
+    because the end effector is linked to the wrist, and the offset is changed to 0 to compare 
+    pinocchio data with something that is known.
+    '''
     def log_target_errors(self, t_ee, t_w):
         tmp_dx = abs(self.plan[self.current_point][0] - t_ee.transform.translation.x)
         tmp_dy = abs(self.plan[self.current_point][1] - t_ee.transform.translation.y)
         tmp_dz = abs(self.plan[self.current_point][2] - t_ee.transform.translation.z)
-        self.get_logger().info(f'Pin end Effector to target error deltas: {tmp_dx} {tmp_dy} {tmp_dz}')
+        self.get_logger().info(f'Pin end effector to target error deltas: {tmp_dx} {tmp_dy} {tmp_dz}')
 
         tmp_dx = abs(self.plan[self.current_point][0] - t_w.transform.translation.x)
         tmp_dy = abs(self.plan[self.current_point][1] - t_w.transform.translation.y)
@@ -229,6 +215,11 @@ class RuckigJointTrajectoryNode(Node):
         self.get_logger().info(f'Pin ee to TF w error deltas: {tmp_dx} {tmp_dy} {tmp_dz}')
         print()
 
+    '''
+    Helper function for determining if the robot is close enough to a point and moving on to the
+    next. The values 0.004 and 0.005 were chosen after observing results without this function and
+    further testing. Setting a value too low would cause the plan node to never continue.
+    '''
     def check_point(self, t_ee):
         tmp_dx = abs(self.plan[self.current_point][0] - t_ee.transform.translation.x)
         tmp_dy = abs(self.plan[self.current_point][1] - t_ee.transform.translation.y)
@@ -242,7 +233,7 @@ class RuckigJointTrajectoryNode(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = RuckigJointTrajectoryNode()
+    node = RuckigPlanNode()
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
