@@ -40,10 +40,10 @@ sim_r = np.array([
     [0.0, 0.0, 0.0, 1.0]
 ])
 
-class MinimalSubscriber(Node):
+class IkSolverNode(Node):
 
     def __init__(self):
-        super().__init__('minimal_subscriber')
+        super().__init__('ik_solver_node')
         
         self.subscription = self.create_subscription(
             ArmStates,
@@ -51,41 +51,34 @@ class MinimalSubscriber(Node):
             self.listener_callback,
             10)
         self.joy_sub = self.create_subscription(
-                    Joy,
-                    'joy',
-                    self.joy_callback,
-                    10)
+            Joy,
+            'joy',
+            self.joy_callback,
+            10)
         self.traj_sub = self.create_subscription(
-                    JointTrajectoryPoint,
-                    'joint/trajectory_point',
-                    self.traj_callback,
-                    10)
-        self.joy_sub
-        self.traj_sub
-        self.subscription  # prevent unused variable warning
+            JointTrajectoryPoint,
+            'joint/trajectory_point',
+            self.traj_callback,
+            10)
         self.ik_pub = self.create_publisher(
-                    ArmStates,
-                    'ik_sol',
-                    10)
-        self.ik_pub
+            ArmStates,
+            'ik_sol',
+            10)
         self.debug_pub = self.create_publisher(
-                    DebugData,
-                    'ik_debug',
-                    10)
-        self.debug_pub
+            DebugData,
+            'ik_debug',
+            10)
 
-        self.matrix = sim_l
-        self.matrix_default = sim_r
+        self.left_ee_matrix = sim_l
+        self.right_ee_matrix = sim_r
         self.initial_x = sim_l[0, 3]
         self.initial_y = sim_l[1, 3]
         self.initial_z = sim_l[2, 3]
 
         self.count = 0
 
-        self.frame_flag = False
         self.robot_flag = False
         self.btn_flag = False
-        #self.traj_flag = False
         self.get_pin_fk = True
 
         self.current_arms = ArmStates()
@@ -108,11 +101,10 @@ class MinimalSubscriber(Node):
             self.robot_flag = True
 
     def traj_callback(self, msg):
-            self.current_traj = msg
-            self.matrix[0, 3] = self.current_traj.positions[0]
-            self.matrix[1, 3] = self.current_traj.positions[1]
-            self.matrix[2, 3] = self.current_traj.positions[2]
-            #self.traj_flag = True
+        self.current_traj = msg
+        self.left_ee_matrix[0, 3] = self.current_traj.positions[0]
+        self.left_ee_matrix[1, 3] = self.current_traj.positions[1]
+        self.left_ee_matrix[2, 3] = self.current_traj.positions[2]
 
     def joy_callback(self, msg):
         if (self.btn_flag):
@@ -126,28 +118,10 @@ class MinimalSubscriber(Node):
             if (press_counter == msg_btn_size):
                 self.btn_flag = False;
 
-        elif (msg.buttons[11] == 1):   # d-pad up
-            # self.matrix[0, 3] += 0.01
-            self.btn_flag = True
-        elif (msg.buttons[12] == 1):   # d-pad down
-            # self.matrix[0, 3] += -0.01
-            self.btn_flag = True
-        elif (msg.buttons[13] == 1):   # d-pad left
-            # self.matrix[1, 3] += 0.01
-            self.btn_flag = True
-        elif (msg.buttons[14] == 1):   # d-pad right
-            # self.matrix[1, 3] += -0.01
-            self.btn_flag = True
-        elif (msg.buttons[0] == 1):   # A
-            # self.matrix[2, 3] += -0.01
-            self.btn_flag = True
-        elif (msg.buttons[3] == 1):   # Y
-            # self.matrix[2, 3] += 0.01
-            self.btn_flag = True
         elif (msg.buttons[1] == 1):   # B
-            self.matrix[0, 3] = self.initial_x
-            self.matrix[1, 3] = self.initial_y
-            self.matrix[2, 3] = self.initial_z
+            self.left_ee_matrix[0, 3] = self.initial_x
+            self.left_ee_matrix[1, 3] = self.initial_y
+            self.left_ee_matrix[2, 3] = self.initial_z
             self.btn_flag = True
         else:
             return
@@ -159,14 +133,14 @@ class MinimalSubscriber(Node):
             self.initial_z = t[2]
 
             for i in range(3):
-                self.matrix[i, 3] = t[i]
+                self.left_ee_matrix[i, 3] = t[i]
                 for j in range(3):
-                    self.matrix[i, j] = r[i, j]
+                    self.left_ee_matrix[i, j] = r[i, j]
         else:
             for i in range(3):
-                self.matrix_default[i, 3] = t[i]
+                self.right_ee_matrix[i, 3] = t[i]
                 for j in range(3):
-                    self.matrix_default[i, j] = r[i, j]
+                    self.right_ee_matrix[i, j] = r[i, j]
 
     def on_timer(self):
         try:
@@ -202,8 +176,8 @@ class MinimalSubscriber(Node):
                     r_pin_t, r_pin_r = self.arm_ik.get_fk_r(np.array([ joint.q for joint in self.current_arms.motor_states]))
                     self.set_matrix(r_pin_t, r_pin_r, 1)
                 #time_start = time.time()
-                sol_q, sol_tauff  = self.arm_ik.solve_ik(self.matrix, self.matrix_default, np.array([ joint.q for joint in self.current_arms.motor_states]), np.array([ joint.dq for joint in self.current_arms.motor_states]))
-                #sol_q, sol_tauff  = self.arm_ik.solve_ik(self.matrix, self.matrix_default, np.array([ joint.q for joint in self.current_arms.motor_states]), np.array([ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]))
+                sol_q, sol_tauff  = self.arm_ik.solve_ik(self.left_ee_matrix, self.right_ee_matrix, np.array([ joint.q for joint in self.current_arms.motor_states]), np.array([ joint.dq for joint in self.current_arms.motor_states]))
+                #sol_q, sol_tauff  = self.arm_ik.solve_ik(self.left_ee_matrix, self.right_ee_matrix, np.array([ joint.q for joint in self.current_arms.motor_states]), np.array([ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]))
                 #time_end = time.time()
                 #self.get_logger().info("IK Solve Time: " + str((time_end - time_start))
                 
@@ -217,7 +191,7 @@ class MinimalSubscriber(Node):
                 new_arms.motor_states = tmp_arms
                 #self.get_logger().info('publishing ik solutions')
                 self.ik_pub.publish(new_arms)
-                #print(self.matrix)
+                #print(self.left_ee_matrix)
                 if self.count < 15:
                     self.count += 1
                     #print("solution", self.count - 6, " before publishing:", sol_q[0])
@@ -232,12 +206,12 @@ class MinimalSubscriber(Node):
                 f'Could not find transform: {ex}')
             return
 
-        tmp_r = R.from_matrix(self.matrix[0:3, 0:3])
+        tmp_r = R.from_matrix(self.left_ee_matrix[0:3, 0:3])
         target_q = tmp_r.as_quat()
         dbgData = DebugData()
-        dbgData.target_tx = self.matrix[0, 3]
-        dbgData.target_ty = self.matrix[1, 3]
-        dbgData.target_tz = self.matrix[2, 3]
+        dbgData.target_tx = self.left_ee_matrix[0, 3]
+        dbgData.target_ty = self.left_ee_matrix[1, 3]
+        dbgData.target_tz = self.left_ee_matrix[2, 3]
         dbgData.target_qx = target_q[0];
         dbgData.target_qy = target_q[1];
         dbgData.target_qz = target_q[2];
@@ -280,7 +254,7 @@ class MinimalSubscriber(Node):
 def main(args=None):
     rclpy.init(args=args)
 
-    minimal_subscriber = MinimalSubscriber()
+    minimal_subscriber = IkSolverNode()
 
     rclpy.spin(minimal_subscriber)
 
