@@ -213,7 +213,6 @@ static constexpr double max_j = 1.0;    //        1.0          2.0
   bool have_measured_state_ = false;
 
   // std_msgs::msg::Bool ruckig_status;
-  std::array<float, 10> ruckig_data_que = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 
   void StateCallback(const LowState::SharedPtr msg) {
     last_state_ = *msg;
