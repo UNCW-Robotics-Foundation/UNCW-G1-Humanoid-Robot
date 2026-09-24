@@ -62,8 +62,7 @@ std::array<G1Arm7JointIndex, NUM_ARM_JOINTS> arm_joints_ = {
 
 enum Gesture_Type {
   Point,
-  Recording,
-  Loop,
+  CSV,
   Nothing
 };
 
@@ -81,13 +80,6 @@ static constexpr double max_j = 2.5;    //        1.0          2.0
 
  public:
   CustomGestureController() : Node("custom_gesture_controller"), otg_(CONTROL_DT) {
-    // declare_parameter<std::vector<double>>("max_velocity",     {max_v, max_v, max_v, max_v, max_v, max_v, max_v, max_v, max_v, max_v, max_v, max_v, max_v, max_v, max_v, max_v, max_v});
-    // declare_parameter<std::vector<double>>("max_acceleration", {max_a, max_a, max_a, max_a, max_a, max_a, max_a, max_a, max_a, max_a, max_a, max_a, max_a, max_a, max_a, max_a, max_a});
-    // declare_parameter<std::vector<double>>("max_jerk",         {max_j, max_j, max_j, max_j, max_j, max_j, max_j, max_j, max_j, max_j, max_j, max_j, max_j, max_j, max_j, max_j, max_j});
-
-    // auto max_vel = get_parameter("max_velocity").as_double_array();
-    // auto max_acc = get_parameter("max_acceleration").as_double_array();
-    // auto max_jrk = get_parameter("max_jerk").as_double_array();
 
     for (int i = 0; i < DOF; ++i) {
       input_.max_velocity[i]         = max_v;
@@ -117,7 +109,6 @@ static constexpr double max_j = 2.5;    //        1.0          2.0
         }); 
 
     // A seperate thread is created for managing the control loop
-    //thread_txt_ = std::thread([this]() { Main_Control(); });
     timer_ = create_wall_timer(std::chrono::duration<double>(CONTROL_DT), std::bind(&CustomGestureController::Main_Control, this));
 
     sleep_time_ =
@@ -130,24 +121,19 @@ static constexpr double max_j = 2.5;    //        1.0          2.0
   rclcpp::Subscription<LowState>::SharedPtr sub_;
   rclcpp::Subscription<unitree_go::msg::WirelessController>::SharedPtr suber_;
   rclcpp::TimerBase::SharedPtr timer_;
-  
-  std::thread thread_txt_;
-  std::string gesture_data;
 
-  LowState last_state_;
   LowState current_low_state_;
 
-  int count = 0;
+  double saved_time;
   std::string file_name; 
   bool state_received_ = false;
   bool btn_flag = false;
   bool busy_flag = false;
   bool e_stop = false;
-  bool last_move = false;
   bool user_flag = false;
   bool waiting_for_user = false;
-  bool looping_flag = false;
   bool record_init_arms = true;
+  bool record_time = true;
 
   float kp_{60.0F}, kd_{1.5F};
   float control_dt_{0.02F};
@@ -184,6 +170,14 @@ static constexpr double max_j = 2.5;    //        1.0          2.0
     if (record_init_arms) {
       init_arm_pos_ = curent_arm_pos_;
       record_init_arms = false;
+      for (int i = 0; i < 17; i++) {
+        RCLCPP_INFO(this->get_logger(), "[INITIAL] Saving initial %i to %f", i, init_arm_pos_[i]);
+      }
+    }
+
+    if (e_stop) {
+      ExitCustom();
+      return;
     }
 
     switch (gesture_type)
@@ -196,11 +190,20 @@ static constexpr double max_j = 2.5;    //        1.0          2.0
         RCLCPP_ERROR(get_logger(), "Ruckig update failed (code %d)", static_cast<int>(res));
         return;
       } else if (res == Result::Finished) {
+        if (record_time) {
+          RCLCPP_INFO(this->get_logger(), "Starting e_stop timer...");
+          saved_time = this->get_clock()->now().seconds();
+          record_time = false;
+        } else {
+          if (this->get_clock()->now().seconds() - saved_time > 5) {
+            e_stop = true;
+          }
+        }
         //RCLCPP_INFO(this->get_logger(), "Robot main trajectory finished");
         // ruckig_status.data = false;
-        for (int i = 0; i < 17; i++) {
-          RCLCPP_INFO(this->get_logger(), "Final %i set to %f", i, output_.new_position[i]);
-        }
+        // for (int i = 0; i < 17; i++) {
+        //   RCLCPP_INFO(this->get_logger(), "Final %i set to %f", i, output_.new_position[i]);
+        // }
       }
 
       output_.pass_to_input(input_);
@@ -208,11 +211,7 @@ static constexpr double max_j = 2.5;    //        1.0          2.0
       SendPositionCommandRuckig();
       break;
     }
-    case Recording:
-      RCLCPP_INFO(this->get_logger(), "PLACEHOLDER");
-      break;
-
-    case Loop:
+    case CSV:
       RCLCPP_INFO(this->get_logger(), "PLACEHOLDER");
       break;
 
@@ -239,76 +238,6 @@ static constexpr double max_j = 2.5;    //        1.0          2.0
     state_received_ = true;
   }
 
-  /*
-  Function for moving from current to target position
-  */
-  void MoveTo(const std::array<float, NUM_ARM_JOINTS>& target,
-              std::array<float, NUM_ARM_JOINTS>& current, float duration) {
-    const int steps = static_cast<int>(duration / control_dt_);
-    const std::array<float, NUM_ARM_JOINTS> initial = current;
-
-    for (int i = 0; i < steps; ++i) {
-      for (size_t j = 0; j < arm_joints_.size(); ++j) {
-        // linear interpolation
-        current[j] = ((i * (target[j] - initial[j])) / steps) + initial[j];
-      }
-
-      if ((e_stop) && !(last_move)) {
-        last_move = true;
-        return;
-      }
-
-      SendPositionCommand(current);
-      std::this_thread::sleep_for(sleep_time_);
-    }
-    // Q1 flag
-    if (last_move) {
-      last_move = false;
-    }
-  }
-
-  // Same as function above without e_stop or last_move flags
-  void MoveToFinal(const std::array<float, NUM_ARM_JOINTS>& target,
-              std::array<float, NUM_ARM_JOINTS>& current, float duration) {
-    const int steps = static_cast<int>(duration / control_dt_);
-    const std::array<float, NUM_ARM_JOINTS> initial = current;
-
-    for (int i = 0; i < steps; ++i) {
-      for (size_t j = 0; j < arm_joints_.size(); ++j) {
-          // linear interpolation
-        current[j] = ((i * (target[j] - initial[j])) / steps) + initial[j];
-      }
-
-      SendPositionCommand(current);
-      std::this_thread::sleep_for(sleep_time_);
-    }
-  }
-
-  /*
-  Helper function for MoveTo function. Very similar to control function.
-  */
-  void SendPositionCommand(const std::array<float, NUM_ARM_JOINTS>& positions) {
-    LowCmd cmd;
-
-    for (size_t i = 0; i < arm_joints_.size(); ++i) {
-      int idx = static_cast<int>(arm_joints_[i]);
-      cmd.motor_cmd[idx].q = positions[i];
-      cmd.motor_cmd[idx].dq = 0.0F;
-      cmd.motor_cmd[idx].tau = 0.0F;
-      if (i >= arm_joints_.size() - 3) {
-        cmd.motor_cmd[idx].kp = kp_ * 4.0F;
-        cmd.motor_cmd[idx].kd = kd_ * 4.0F;
-      } else {
-        cmd.motor_cmd[idx].kp = kp_;
-        cmd.motor_cmd[idx].kd = kd_;
-      }
-    }
-
-    cmd.motor_cmd[static_cast<int>(NOT_USED_JOINT)].q = 1.0F;
-
-    pub_->publish(cmd);
-  }
-
   void SendPositionCommandRuckig() {
     LowCmd cmd;
 
@@ -332,6 +261,41 @@ static constexpr double max_j = 2.5;    //        1.0          2.0
     pub_->publish(cmd);
   }
 
+  void ExitCustom() {
+    RCLCPP_INFO(this->get_logger(), "Returning to initial position...");
+    for (int i = 0; i < 17; i++) {
+      input_.current_position[i] = curent_arm_pos_[i];
+
+      input_.target_position[i] = init_arm_pos_[i];
+      input_.target_velocity[i]     = 0.0;
+      input_.target_acceleration[i] = 0.0;
+
+      // RCLCPP_INFO(this->get_logger(), "[RUCK CURRENT] Setting current %i to %f", i, curent_arm_pos_[i]);
+      // RCLCPP_INFO(this->get_logger(), "[RUCK TARGET] Setting target %i to %f", i, init_arm_pos_[i]);
+    }
+
+    Result res = otg_.update(input_, output_);
+    while (res == Result::Working) {
+      output_.pass_to_input(input_);
+      SendPositionCommandRuckig();
+
+      rclcpp::sleep_for(std::chrono::milliseconds(4)); // 250 Hz
+      res = otg_.update(input_, output_);
+    }
+    busy_flag = false;
+    e_stop = false;
+    record_init_arms = true;
+    gesture_type = Gesture_Type::Nothing;
+    last_point_gesture = 999;
+
+    LowCmd cmd;
+    cmd.motor_cmd[static_cast<int>(NOT_USED_JOINT)].q = 0.0F;
+    pub_->publish(cmd);
+
+    RCLCPP_INFO(this->get_logger(), "Custom Gestures Exited");
+
+  }
+
   /*
   Function for wireless_controller subscriber. Any modifications to button inputs and/or 
   gestures need to be made here. I recommend using <F1 or L1> + <button>. The controller sends an integer
@@ -343,19 +307,19 @@ static constexpr double max_j = 2.5;    //        1.0          2.0
   void WirelessCallback(const unitree_go::msg::WirelessController::SharedPtr& data) {
     // Buttons flip the btn_flag (flaps back when released), the busy_flag (flips back when gesture completes), and e_stop flag (flips back when gesture completes)
     if ((data->keys == 258) && (btn_flag)) {        // L1 + A
-      ButtonsHelper("gestures/ymca.csv");
+      CsvButton("gestures/ymca.csv");
       btn_flag = false;
     } else if ((data->keys == 514) && (btn_flag)) { // L1 + B
-      ButtonsHelper("gestures/raise.csv");
+      CsvButton("gestures/raise.csv");
       btn_flag = false;
     } else if ((data->keys == 1026) && (btn_flag)) { // L1 + X
-      ButtonsHelper("gestures/rodeo.csv");
+      CsvButton("gestures/rodeo.csv");
       btn_flag = false;
     } else if ((data->keys == 2050) && (btn_flag)) { // L1 + Y
-      ButtonsHelper("gestures/wave.csv");
+      CsvButton("gestures/wave.csv");
       btn_flag = false;
     } else if ((data->keys == 4098) && (btn_flag)) { // L1 + UP
-      ButtonsHelper("gestures/wings.csv");
+      CsvButton("gestures/wings.csv");
       btn_flag = false;
     } else if ((data->keys == 20) && (btn_flag)) { // R2 + START
       PointButton(0, static_gestures.Stand_By);
@@ -381,12 +345,13 @@ static constexpr double max_j = 2.5;    //        1.0          2.0
   }
 
   // Helper function for controllers
-  void ButtonsHelper(std::string gesture_name) {
+  void CsvButton(std::string gesture_name) {
     if (!(busy_flag)) {
       //RCLCPP_INFO(this->get_logger(), "CONTROLLER HANDLER; Button B pressed. Performing punch...");
       file_name = gesture_name;
       btn_flag = true;
       busy_flag = true;
+      gesture_type = Gesture_Type::CSV;
     } else {
       //RCLCPP_INFO(this->get_logger(), "Button pressed while busy");
       e_stop = true;
@@ -394,10 +359,14 @@ static constexpr double max_j = 2.5;    //        1.0          2.0
   }
 
   void PointButton(int point_gesture_id, std::array<float, 17> point_gesture) {
-    if (last_point_gesture == point_gesture_id) {
+    if ((last_point_gesture == point_gesture_id) || ((gesture_type != Gesture_Type::Nothing) && (gesture_type != Gesture_Type::Point))) {
       e_stop = true;
-    } else if (true) {  // TODO: make this check fsm id for flag
+      RCLCPP_INFO(this->get_logger(), "EMERGENCY STOP!!!");
+      return;
+    } else if (!e_stop) {  // TODO: make this check fsm id for flag
       std::lock_guard<std::mutex> lock(target_mutex_);
+      last_point_gesture = point_gesture_id;
+      record_time = true;
 
       for (int i = 0; i < 17; i++) {
         //pending_target_[i] = point_gesture[i];
