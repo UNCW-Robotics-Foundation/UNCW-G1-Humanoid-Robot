@@ -71,6 +71,14 @@ enum Robot_Status {
   Custom_
 };
 
+enum Csv_Flags {
+  Regular,
+  Continuous,
+  MoveThenWait,
+  looped,
+  Wait
+};
+
 static constexpr int DOF = 17;
 static constexpr double CONTROL_DT = 1.0 / 250.0;     // 250 Hz fast loop
 static constexpr double RESYNC_POS_TOLERANCE = 0.02;  // rad, per-joint
@@ -95,8 +103,8 @@ static constexpr double max_j = 2.5;    //        1.0          2.0
       measured_velocity_[i] = 0.0;
     }
 
-    pub_ = this->create_publisher<LowCmd>("/lowcmd", 10); // uncomment for Mujoco
-    //pub_ = this->create_publisher<LowCmd>("/arm_sdk", 10);  // uncomment for real robot
+    //pub_ = this->create_publisher<LowCmd>("/lowcmd", 10); // uncomment for Mujoco
+    pub_ = this->create_publisher<LowCmd>("/arm_sdk", 10);  // uncomment for real robot
 
     sub_ = this->create_subscription<LowState>(
         "/lowstate", 10,
@@ -110,9 +118,6 @@ static constexpr double max_j = 2.5;    //        1.0          2.0
 
     // A seperate thread is created for managing the control loop
     timer_ = create_wall_timer(std::chrono::duration<double>(CONTROL_DT), std::bind(&CustomGestureController::Main_Control, this));
-
-    sleep_time_ =
-        std::chrono::milliseconds(static_cast<int>(control_dt_ * 1000));
     
   }
 
@@ -124,6 +129,8 @@ static constexpr double max_j = 2.5;    //        1.0          2.0
 
   LowState current_low_state_;
 
+  int csv_tracker = 0;
+  int csv_size = 0;
   double saved_time;
   std::string file_name; 
   bool state_received_ = false;
@@ -134,16 +141,17 @@ static constexpr double max_j = 2.5;    //        1.0          2.0
   bool waiting_for_user = false;
   bool record_init_arms = true;
   bool record_time = true;
+  bool set_ruckig_flag = true;
 
   float kp_{60.0F}, kd_{1.5F};
   float control_dt_{0.02F};
   float move_duration_ = 3.0F;
-  std::chrono::milliseconds sleep_time_{};
 
   std::array<float, NUM_ARM_JOINTS> current_jpos_{};  // The robot's current target
   std::array<float, NUM_ARM_JOINTS> curent_arm_pos_{};      // The robot's current pos from lowstate
   std::array<float, NUM_ARM_JOINTS> init_arm_pos_{};
   std::vector<std::array<float, NUM_ARM_JOINTS>> looped_rec;  // Storage for looping gestures
+  std::vector<std::vector<std::string>> csv_data;
 
   Gesture_Type gesture_type = Gesture_Type::Nothing;
   G1Gestures static_gestures;
@@ -183,8 +191,6 @@ static constexpr double max_j = 2.5;    //        1.0          2.0
     switch (gesture_type)
     {
     case Point: {
-    //std::array<float, 3> test = tmp.Point_Left;
-      //RCLCPP_INFO(this->get_logger(), "Starting Movement");
       Result res = otg_.update(input_, output_);
       if (res != Result::Working && res != Result::Finished) {
         RCLCPP_ERROR(get_logger(), "Ruckig update failed (code %d)", static_cast<int>(res));
@@ -199,11 +205,6 @@ static constexpr double max_j = 2.5;    //        1.0          2.0
             e_stop = true;
           }
         }
-        //RCLCPP_INFO(this->get_logger(), "Robot main trajectory finished");
-        // ruckig_status.data = false;
-        // for (int i = 0; i < 17; i++) {
-        //   RCLCPP_INFO(this->get_logger(), "Final %i set to %f", i, output_.new_position[i]);
-        // }
       }
 
       output_.pass_to_input(input_);
@@ -212,7 +213,36 @@ static constexpr double max_j = 2.5;    //        1.0          2.0
       break;
     }
     case CSV:
-      RCLCPP_INFO(this->get_logger(), "PLACEHOLDER");
+      if (csv_tracker >= csv_size) {
+        e_stop = true;
+        return;
+      }
+      switch (std::stoi(csv_data[csv_tracker][29])) {
+        case Regular:
+          if (HandleRegular()) {
+            return;
+          }
+          break;
+        
+        case Continuous:
+          HandleContinuous();
+          break;
+        
+        case MoveThenWait:
+          break;
+
+        case looped:
+          break;
+
+        case Wait:
+          break;
+
+        default:
+          e_stop = true;
+          break;
+      }
+      csv_tracker ++;
+
       break;
 
     case Nothing:
@@ -220,10 +250,61 @@ static constexpr double max_j = 2.5;    //        1.0          2.0
       break;
     
     default:
-      RCLCPP_INFO(this->get_logger(), "PLACEHOLDER");
+      e_stop = true;
       break;
     }
 
+  }
+
+  bool HandleRegular() {
+    if (set_ruckig_flag) {
+      for (int i = 0; i < 17; i++) {
+        input_.current_position[i] = curent_arm_pos_[i];
+
+        input_.target_position[i] = std::stof(csv_data[csv_tracker][i + 12]);
+        input_.target_velocity[i]     = 0.0;
+        input_.target_acceleration[i] = 0.0;
+      }
+
+      set_ruckig_flag = false;
+    }
+
+    Result res = otg_.update(input_, output_);
+    if (res != Result::Working && res != Result::Finished) {
+      RCLCPP_ERROR(get_logger(), "Ruckig update failed (code %d); Emergency Stopping...", static_cast<int>(res));
+      e_stop = true;
+      return false;
+    } else if (res == Result::Finished) {
+      set_ruckig_flag = true;
+      return false;
+    }
+
+    output_.pass_to_input(input_);
+    SendPositionCommandRuckig();
+    return true;
+  }
+
+  void HandleContinuous() {
+    LowCmd cmd;
+
+    for (size_t i = 0; i < arm_joints_.size(); ++i) {
+      int idx = static_cast<int>(arm_joints_[i]);
+      cmd.motor_cmd[idx].q = std::stof(csv_data[csv_tracker][i + 12]);
+      cmd.motor_cmd[idx].dq = 0.0F;
+      // cmd.motor_cmd[idx].dq = 0.0F;
+      cmd.motor_cmd[idx].tau = 0.0F;
+      if (i < 3) {
+        cmd.motor_cmd[idx].kp = kp_ * 4.0F;
+        cmd.motor_cmd[idx].kd = kd_ * 4.0F;
+      } else {
+        cmd.motor_cmd[idx].kp = kp_;
+        cmd.motor_cmd[idx].kd = kd_;
+      }
+    }
+
+    cmd.motor_cmd[static_cast<int>(NOT_USED_JOINT)].q = 1.0F;
+
+    pub_->publish(cmd);
   }
 
   // Function for lowstate subscriber
@@ -269,9 +350,6 @@ static constexpr double max_j = 2.5;    //        1.0          2.0
       input_.target_position[i] = init_arm_pos_[i];
       input_.target_velocity[i]     = 0.0;
       input_.target_acceleration[i] = 0.0;
-
-      // RCLCPP_INFO(this->get_logger(), "[RUCK CURRENT] Setting current %i to %f", i, curent_arm_pos_[i]);
-      // RCLCPP_INFO(this->get_logger(), "[RUCK TARGET] Setting target %i to %f", i, init_arm_pos_[i]);
     }
 
     Result res = otg_.update(input_, output_);
@@ -287,6 +365,8 @@ static constexpr double max_j = 2.5;    //        1.0          2.0
     record_init_arms = true;
     gesture_type = Gesture_Type::Nothing;
     last_point_gesture = 999;
+    csv_data.clear();
+    set_ruckig_flag = true;
 
     LowCmd cmd;
     cmd.motor_cmd[static_cast<int>(NOT_USED_JOINT)].q = 0.0F;
@@ -347,13 +427,28 @@ static constexpr double max_j = 2.5;    //        1.0          2.0
   // Helper function for controllers
   void CsvButton(std::string gesture_name) {
     if (!(busy_flag)) {
-      //RCLCPP_INFO(this->get_logger(), "CONTROLLER HANDLER; Button B pressed. Performing punch...");
-      file_name = gesture_name;
+      std::lock_guard<std::mutex> lock(target_mutex_);
+      std::ifstream GestureFile(gesture_name);
+      std::string raw_csv;
+      getline (GestureFile, raw_csv);
+      while (getline (GestureFile, raw_csv)) {
+        std::stringstream ss(raw_csv);
+        std::string cell;
+        std::vector<std::string> row;
+
+        while (std::getline(ss, cell, ',')) {
+          row.push_back(cell);
+        }
+        csv_data.push_back(row);
+      }
+
+      csv_size = csv_data.size();
+      csv_tracker = 0;
       btn_flag = true;
       busy_flag = true;
       gesture_type = Gesture_Type::CSV;
     } else {
-      //RCLCPP_INFO(this->get_logger(), "Button pressed while busy");
+      RCLCPP_INFO(this->get_logger(), "EMERGENCY STOP!!!");
       e_stop = true;
     }
   }
