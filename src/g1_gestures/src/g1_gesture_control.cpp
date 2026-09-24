@@ -103,8 +103,8 @@ static constexpr double max_j = 2.5;    //        1.0          2.0
       measured_velocity_[i] = 0.0;
     }
 
-    //pub_ = this->create_publisher<LowCmd>("/lowcmd", 10); // uncomment for Mujoco
-    pub_ = this->create_publisher<LowCmd>("/arm_sdk", 10);  // uncomment for real robot
+    pub_ = this->create_publisher<LowCmd>("/lowcmd", 10); // uncomment for Mujoco
+    //pub_ = this->create_publisher<LowCmd>("/arm_sdk", 10);  // uncomment for real robot
 
     sub_ = this->create_subscription<LowState>(
         "/lowstate", 10,
@@ -147,10 +147,8 @@ static constexpr double max_j = 2.5;    //        1.0          2.0
   float control_dt_{0.02F};
   float move_duration_ = 3.0F;
 
-  std::array<float, NUM_ARM_JOINTS> current_jpos_{};  // The robot's current target
   std::array<float, NUM_ARM_JOINTS> curent_arm_pos_{};      // The robot's current pos from lowstate
   std::array<float, NUM_ARM_JOINTS> init_arm_pos_{};
-  std::vector<std::array<float, NUM_ARM_JOINTS>> looped_rec;  // Storage for looping gestures
   std::vector<std::vector<std::string>> csv_data;
 
   Gesture_Type gesture_type = Gesture_Type::Nothing;
@@ -164,13 +162,11 @@ static constexpr double max_j = 2.5;    //        1.0          2.0
   std::array<double, DOF> measured_position_{};
   std::array<double, DOF> measured_velocity_{};
 
-  std::mutex state_mutex_;
   std::mutex target_mutex_;
-  std::array<double, DOF> pending_target_{};
 
   void Main_Control() {
     // TODO: Add third flag for fsm state. Only want to perform gestures when in running mode.
-    while (!((state_received_) && (busy_flag))){
+    if (!((state_received_) && (busy_flag))){
       return;
     }
 
@@ -194,6 +190,7 @@ static constexpr double max_j = 2.5;    //        1.0          2.0
       Result res = otg_.update(input_, output_);
       if (res != Result::Working && res != Result::Finished) {
         RCLCPP_ERROR(get_logger(), "Ruckig update failed (code %d)", static_cast<int>(res));
+        e_stop = true;
         return;
       } else if (res == Result::Finished) {
         if (record_time) {
@@ -235,6 +232,17 @@ static constexpr double max_j = 2.5;    //        1.0          2.0
           break;
 
         case Wait:
+          if (!waiting_for_user) {
+            waiting_for_user = true;
+            user_flag = false;
+            return;
+          }
+          if (!user_flag) {
+            return;
+          } else {
+            waiting_for_user = false;
+            user_flag = false;
+          }
           break;
 
         default:
@@ -367,6 +375,8 @@ static constexpr double max_j = 2.5;    //        1.0          2.0
     last_point_gesture = 999;
     csv_data.clear();
     set_ruckig_flag = true;
+    waiting_for_user = false;
+    user_flag = false;
 
     LowCmd cmd;
     cmd.motor_cmd[static_cast<int>(NOT_USED_JOINT)].q = 0.0F;
@@ -464,7 +474,6 @@ static constexpr double max_j = 2.5;    //        1.0          2.0
       record_time = true;
 
       for (int i = 0; i < 17; i++) {
-        //pending_target_[i] = point_gesture[i];
         input_.target_position[i] = point_gesture[i];
         input_.target_velocity[i]     = 0.0;
         input_.target_acceleration[i] = 0.0;
