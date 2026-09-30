@@ -82,9 +82,9 @@ enum Csv_Flags {
 static constexpr int DOF = 17;
 static constexpr double CONTROL_DT = 1.0 / 250.0;     // 250 Hz fast loop
 static constexpr double RESYNC_POS_TOLERANCE = 0.02;  // rad, per-joint
-static constexpr double max_v = 0.5;   // plan:  0.05    pen:  0.5
-static constexpr double max_a = 1.0;    //        0.1          1.0
-static constexpr double max_j = 2.5;    //        1.0          2.0
+static constexpr double max_v = 0.5;
+static constexpr double max_a = 1.0;
+static constexpr double max_j = 2.5;     
 
  public:
   CustomGestureController() : Node("custom_gesture_controller"), otg_(CONTROL_DT) {
@@ -103,8 +103,8 @@ static constexpr double max_j = 2.5;    //        1.0          2.0
       measured_velocity_[i] = 0.0;
     }
 
-    pub_ = this->create_publisher<LowCmd>("/lowcmd", 10); // uncomment for Mujoco
-    //pub_ = this->create_publisher<LowCmd>("/arm_sdk", 10);  // uncomment for real robot
+    //pub_ = this->create_publisher<LowCmd>("/lowcmd", 10); // uncomment for Mujoco
+    pub_ = this->create_publisher<LowCmd>("/arm_sdk", 10);  // uncomment for real robot
 
     sub_ = this->create_subscription<LowState>(
         "/lowstate", 10,
@@ -351,6 +351,12 @@ static constexpr double max_j = 2.5;    //        1.0          2.0
   }
 
   void ExitCustom() {
+    for (int i = 0; i < DOF; i++) {
+      input_.max_velocity[i]         = 0.5;
+      input_.max_acceleration[i]     = 1.0;
+      input_.max_jerk[i]             = 2.5;
+    }
+    
     RCLCPP_INFO(this->get_logger(), "Returning to initial position...");
     for (int i = 0; i < 17; i++) {
       input_.current_position[i] = curent_arm_pos_[i];
@@ -397,6 +403,11 @@ static constexpr double max_j = 2.5;    //        1.0          2.0
   void WirelessCallback(const unitree_go::msg::WirelessController::SharedPtr& data) {
     // Buttons flip the btn_flag (flaps back when released), the busy_flag (flips back when gesture completes), and e_stop flag (flips back when gesture completes)
     if ((data->keys == 258) && (btn_flag)) {        // L1 + A
+      for (int i = 0; i < DOF; i++) {
+        input_.max_velocity[i]         = 2.0;
+        input_.max_acceleration[i]     = 4.0;
+        input_.max_jerk[i]             = 8.0;
+      }
       CsvButton("gestures/ymca.csv");
       btn_flag = false;
     } else if ((data->keys == 514) && (btn_flag)) { // L1 + B
@@ -418,7 +429,13 @@ static constexpr double max_j = 2.5;    //        1.0          2.0
       PointButton(1, static_gestures.Point_Left);
       btn_flag = false;
     } else if ((data->keys == 8208) && (btn_flag)) { // R2 + RIGHT
-      PointButton(2, static_gestures.Point_Right);
+      PointButton(2, static_gestures.Point_Right, {1.0, 2.0, 5.0});
+      btn_flag = false;
+    } else if ((data->keys == 4112) && (btn_flag)) { // R2 + UP
+      PointButton(3, static_gestures.Arm_Forward);
+      btn_flag = false;
+    } else if ((data->keys == 16400) && (btn_flag)) { // R2 + DOWN
+      PointButton(4, static_gestures.Arm_Backward);
       btn_flag = false;
     } else if ((data->keys == 6) && (btn_flag)) { // L1 + START
       if (waiting_for_user) {
@@ -463,13 +480,18 @@ static constexpr double max_j = 2.5;    //        1.0          2.0
     }
   }
 
-  void PointButton(int point_gesture_id, std::array<float, 17> point_gesture) {
+  void PointButton(int point_gesture_id, std::array<float, 17> point_gesture, std::array<float, 3> speed = {0.5, 1.0, 2.5}) {
     if ((last_point_gesture == point_gesture_id) || ((gesture_type != Gesture_Type::Nothing) && (gesture_type != Gesture_Type::Point))) {
       e_stop = true;
       RCLCPP_INFO(this->get_logger(), "EMERGENCY STOP!!!");
       return;
     } else if (!e_stop) {  // TODO: make this check fsm id for flag
       std::lock_guard<std::mutex> lock(target_mutex_);
+      for (int i = 0; i < DOF; i++) {
+        input_.max_velocity[i]         = speed[0];
+        input_.max_acceleration[i]     = speed[1];
+        input_.max_jerk[i]             = speed[2];
+      }
       last_point_gesture = point_gesture_id;
       record_time = true;
 

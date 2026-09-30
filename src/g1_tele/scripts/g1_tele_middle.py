@@ -75,8 +75,8 @@ class RuckigJointTrajectoryNode(Node):
         self.point_pub = self.create_publisher(
             JointTrajectoryPoint, 'joint/trajectory_point', 10)
 
-        self.cmd_pub = self.create_publisher(
-                    LowCmd, 'joint/cmd', 10)
+        # self.cmd_pub = self.create_publisher(
+        #             LowCmd, 'joint/cmd', 10)
 
         self.timer = self.create_timer(self.dt, self.update_loop)
 
