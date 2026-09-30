@@ -53,15 +53,6 @@ find_package(unitree_api REQUIRED)
 find_package(unitree_go REQUIRED)
 find_package(unitree_hg REQUIRED)
 
-add_executable(g1_tele_controller src/g1_tele_controller.cpp)
-ament_target_dependencies(g1_tele_controller ${DEPENDENCY_LIST})
-
-add_executable(g1_ik_arms src/g1_ik_arms.cpp)
-ament_target_dependencies(g1_ik_arms ${DEPENDENCY_LIST})
-
-add_executable(g1_lowcmd_ik_arms src/g1_lowcmd_ik_arms.cpp src/common/motor_crc_hg.cpp)
-ament_target_dependencies(g1_lowcmd_ik_arms ${DEPENDENCY_LIST})
-
 add_executable(g1_lowcmd_ik_arms_fast src/g1_lowcmd_ik_arms_fast.cpp src/common/motor_crc_hg.cpp)
 ament_target_dependencies(g1_lowcmd_ik_arms_fast ${DEPENDENCY_LIST})
 target_link_libraries(g1_lowcmd_ik_arms_fast ruckig::ruckig)
@@ -70,19 +61,8 @@ add_executable(g1_lowcmd_ik_arms_fast_r src/g1_lowcmd_ik_arms_fast_r.cpp src/com
 ament_target_dependencies(g1_lowcmd_ik_arms_fast_r ${DEPENDENCY_LIST})
 target_link_libraries(g1_lowcmd_ik_arms_fast_r ruckig::ruckig)
 
-add_executable(g1_lowcmd_ik_arms_v2 src/g1_lowcmd_ik_arms_v2.cpp src/common/motor_crc_hg.cpp)
-ament_target_dependencies(g1_lowcmd_ik_arms_v2 ${DEPENDENCY_LIST})
-
-add_executable(g1_lowcmd_ik_arms_v3 src/g1_lowcmd_ik_arms_v3.cpp src/common/motor_crc_hg.cpp)
-ament_target_dependencies(g1_lowcmd_ik_arms_v3 ${DEPENDENCY_LIST})
-
-install(TARGETS g1_tele_controller)
-install(TARGETS g1_ik_arms)
-install(TARGETS g1_lowcmd_ik_arms)
 install(TARGETS g1_lowcmd_ik_arms_fast)
 install(TARGETS g1_lowcmd_ik_arms_fast_r)
-install(TARGETS g1_lowcmd_ik_arms_v2)
-install(TARGETS g1_lowcmd_ik_arms_v3)
 
 install(
 DIRECTORY launch
@@ -97,7 +77,6 @@ ament_python_install_package(${PROJECT_NAME})
 
 install(PROGRAMS
 	scripts/g1_tele_middle.py
-	scripts/g1_tele_middle_v2.py
 	scripts/g1_tele_pen.py
 	scripts/g1_tele_plan.py
   DESTINATION lib/${PROJECT_NAME}
