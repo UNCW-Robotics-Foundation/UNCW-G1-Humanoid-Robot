@@ -25,6 +25,7 @@ setup(
     entry_points={
         'console_scripts': [
         	'g1_ik_command = g1_ik.g1_ik_command:main',
+        	'g1_ik_command_r = g1_ik.g1_ik_command_r:main',
         	'g1_ik_command_v2 = g1_ik.g1_ik_command_v2:main',
         	'g1_ik_command_v3 = g1_ik.g1_ik_command_v3:main',
         	'g1_ik_controller = g1_ik.g1_ik_controller:main',
@@ -32,6 +33,7 @@ setup(
         	'g1_ik_controller_v3 = g1_ik.g1_ik_controller_v3:main',
         	'g1_ik_plan = g1_ik.g1_ik_plan:main',
         	'g1_ik_plan_v2 = g1_ik.g1_ik_plan_v2:main',
+        	'g1_tau = g1_ik.g1_tau:main',
         	'robot_arm_ik = g1_ik.robot_arm_ik:main',
         	'robot_arm_ik_v2 = g1_ik.robot_arm_ik_v2:main',
         	'robot_arm_ik_v3 = g1_ik.robot_arm_ik_v3:main',

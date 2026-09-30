@@ -5,7 +5,7 @@ from tf2_ros.transform_listener import TransformListener
 from tf2_ros.buffer import Buffer
 from tf2_ros import TransformException, TransformBroadcaster
 import numpy as np
-from g1_ik.robot_arm_ik_v3 import G1_29_ArmIK
+from g1_ik.robot_arm_ik_v2 import G1_29_ArmIK
 from sensor_msgs.msg import Joy
 from geometry_msgs.msg import TransformStamped
 from trajectory_msgs.msg import JointTrajectoryPoint
@@ -71,9 +71,12 @@ class MinimalSubscriber(Node):
 
         self.left_ee_matrix = sim_l
         self.right_ee_matrix = sim_r
-        self.initial_x = sim_l[0, 3]
-        self.initial_y = sim_l[1, 3]
-        self.initial_z = sim_l[2, 3]
+        # self.initial_x = sim_l[0, 3]
+        # self.initial_y = sim_l[1, 3]
+        # self.initial_z = sim_l[2, 3]
+        self.initial_x = sim_r[0, 3]
+        self.initial_y = sim_r[1, 3]
+        self.initial_z = sim_r[2, 3]
 
         self.count = 0
 
@@ -102,9 +105,12 @@ class MinimalSubscriber(Node):
 
     def traj_callback(self, msg):
             self.current_traj = msg
-            self.left_ee_matrix[0, 3] = self.current_traj.positions[0] + self.initial_x
-            self.left_ee_matrix[1, 3] = self.current_traj.positions[1] + self.initial_y
-            self.left_ee_matrix[2, 3] = self.current_traj.positions[2] + self.initial_z
+            # self.left_ee_matrix[0, 3] = self.current_traj.positions[0] + self.initial_x
+            # self.left_ee_matrix[1, 3] = self.current_traj.positions[1] + self.initial_y
+            # self.left_ee_matrix[2, 3] = self.current_traj.positions[2] + self.initial_z
+            self.right_ee_matrix[0, 3] = self.current_traj.positions[0] + self.initial_x
+            self.right_ee_matrix[1, 3] = self.current_traj.positions[1] + self.initial_y
+            self.right_ee_matrix[2, 3] = self.current_traj.positions[2] + self.initial_z
 
     def joy_callback(self, msg):
         if (self.btn_flag):
@@ -119,24 +125,31 @@ class MinimalSubscriber(Node):
                 self.btn_flag = False;
 
         elif (msg.buttons[1] == 1):   # B
-            self.left_ee_matrix[0, 3] = self.initial_x
-            self.left_ee_matrix[1, 3] = self.initial_y
-            self.left_ee_matrix[2, 3] = self.initial_z
+            # self.left_ee_matrix[0, 3] = self.initial_x
+            # self.left_ee_matrix[1, 3] = self.initial_y
+            # self.left_ee_matrix[2, 3] = self.initial_z
+            self.right_ee_matrix[0, 3] = self.initial_x
+            self.right_ee_matrix[1, 3] = self.initial_y
+            self.right_ee_matrix[2, 3] = self.initial_z
             self.btn_flag = True
         else:
             return
 
     def set_matrix(self, t, r, arm):
         if arm == 0:
-            self.initial_x = t[0]
-            self.initial_y = t[1]
-            self.initial_z = t[2]
+            # self.initial_x = t[0]
+            # self.initial_y = t[1]
+            # self.initial_z = t[2]
 
             for i in range(3):
                 self.left_ee_matrix[i, 3] = t[i]
                 for j in range(3):
                     self.left_ee_matrix[i, j] = r[i, j]
         else:
+            self.initial_x = t[0]
+            self.initial_y = t[1]
+            self.initial_z = t[2]
+
             for i in range(3):
                 self.right_ee_matrix[i, 3] = t[i]
                 for j in range(3):
@@ -150,7 +163,7 @@ class MinimalSubscriber(Node):
             #     rclpy.time.Time())
 
             if self.robot_flag:
-                pin_t, pin_r, pin_q = self.arm_ik.get_fk_l(np.array([ joint.q for joint in self.current_arms.motor_states]))
+                pin_t, pin_r, pin_q = self.arm_ik.get_fk_r(np.array([ joint.q for joint in self.current_arms.motor_states]))
                 print("Translation:", pin_t)
                 print("Rotation:")
                 print(pin_r)
@@ -160,7 +173,7 @@ class MinimalSubscriber(Node):
                 frame = TransformStamped()
                 frame.header.stamp = self.get_clock().now().to_msg()
                 frame.header.frame_id = 'pelvis'
-                frame.child_frame_id = 'left_ee'
+                frame.child_frame_id = 'right_ee'
                 frame.transform.translation.x = pin_t[0]
                 frame.transform.translation.y = pin_t[1]
                 frame.transform.translation.z = pin_t[2]
@@ -172,10 +185,18 @@ class MinimalSubscriber(Node):
 
                 if self.get_pin_fk:
                     self.get_pin_fk = False
-                    self.set_matrix(pin_t, pin_r, 0)
-                    r_pin_t, r_pin_r, r_pin_q = self.arm_ik.get_fk_r(np.array([ joint.q for joint in self.current_arms.motor_states]))
-                    self.set_matrix(r_pin_t, r_pin_r, 1)
+                    self.set_matrix(pin_t, pin_r, 1)
+                    l_pin_t, l_pin_r, l_pin_q = self.arm_ik.get_fk_l(np.array([ joint.q for joint in self.current_arms.motor_states]))
+                    self.set_matrix(l_pin_t, l_pin_r, 0)
+                    print("Translation left:", l_pin_t)
+                    print("Rotation left:")
+                    print(l_pin_r)
+                    print(l_pin_q)
+                    print()
                 #time_start = time.time()
+                print("Target right ee matrix:")
+                print(self.right_ee_matrix)
+                print()
                 sol_q, sol_tauff  = self.arm_ik.solve_ik(self.left_ee_matrix, self.right_ee_matrix, np.array([ joint.q for joint in self.current_arms.motor_states]), np.array([ joint.dq for joint in self.current_arms.motor_states]))
                 #sol_q, sol_tauff  = self.arm_ik.solve_ik(self.left_ee_matrix, self.right_ee_matrix, np.array([ joint.q for joint in self.current_arms.motor_states]), np.array([ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]))
                 #time_end = time.time()
@@ -206,13 +227,16 @@ class MinimalSubscriber(Node):
                 f'Could not find transform: {ex}')
             return
 
-        tmp_r = R.from_matrix(self.left_ee_matrix[0:3, 0:3])
+        # tmp_r = R.from_matrix(self.left_ee_matrix[0:3, 0:3])
+        tmp_r = R.from_matrix(self.right_ee_matrix[0:3, 0:3])
         target_q = tmp_r.as_quat()
         dbgData = DebugData()
-        dbgData.target_tx = self.left_ee_matrix[0, 3]
-        dbgData.target_ty = self.left_ee_matrix[1, 3]
-        dbgData.target_tz = self.left_ee_matrix[2, 3]
-        dbgData.target_qx = target_q[0];
+        # dbgData.target_tx = self.left_ee_matrix[0, 3]
+        # dbgData.target_ty = self.left_ee_matrix[1, 3]
+        # dbgData.target_tz = self.left_ee_matrix[2, 3]
+        dbgData.target_tx = self.right_ee_matrix[0, 3]
+        dbgData.target_ty = self.right_ee_matrix[1, 3]
+        dbgData.target_tz = self.right_ee_matrix[2, 3]
         dbgData.target_qy = target_q[1];
         dbgData.target_qz = target_q[2];
         dbgData.target_qw = target_q[3];

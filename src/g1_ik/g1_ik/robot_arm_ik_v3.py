@@ -208,7 +208,12 @@ class G1_29_ArmIK:
         pin.updateFramePlacements(self.reduced_robot.model, self.reduced_robot.data)
         t = self.reduced_robot.data.oMf[self.R_hand_id].translation
         r = self.reduced_robot.data.oMf[self.R_hand_id].rotation
-        return t, r
+        q = pin.Quaternion(r)
+        return t, r, q
+
+    def get_tau(self, current_lr_arm_motor_q = None):
+        sol_tauff = pin.rnea(self.reduced_robot.model, self.reduced_robot.data, current_lr_arm_motor_q, current_lr_arm_motor_q * 0.0, np.zeros(self.reduced_robot.model.nv))
+        return sol_tauff
 
     def solve_ik(self, left_wrist, right_wrist, current_lr_arm_motor_q = None, current_lr_arm_motor_dq = None):
         if current_lr_arm_motor_q is not None:
