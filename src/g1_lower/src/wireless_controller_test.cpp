@@ -13,6 +13,8 @@
 #include <fstream>
 #include "unitree_api/msg/request.hpp"
 #include "unitree_api/msg/response.hpp"
+#include "g1/g1_loco_client.hpp"
+#include "g1/g1_audio_client.hpp"
 
 constexpr int32_t ROBOT_API_ID_AUDIO_TTS = 1001;
 constexpr int32_t ROBOT_API_ID_AUDIO_ASR = 1002;
@@ -49,26 +51,48 @@ struct WaveHeader {
 
 class WirelessControllerSuber : public rclcpp::Node {
  public:
-  WirelessControllerSuber() : Node("wireless_controller_suber") {
+  WirelessControllerSuber(std::string param1) : Node("wireless_controller_suber"), loco_client_(this), audio_client_() {
+    RCLCPP_INFO(this->get_logger(), "Current Parameter: %s", param1.c_str());
     // the cmd_puber is set to subscribe "/wirelesscontroller" topic
     suber_ = this->create_subscription<unitree_go::msg::WirelessController>(
-        "/wirelesscontroller", 10,
-        [this](const unitree_go::msg::WirelessController::SharedPtr data) {
-          topic_callback(data);
-        });
+      "/wirelesscontroller", 10,
+      [this](const unitree_go::msg::WirelessController::SharedPtr data) {
+        topic_callback(data);
+      });
+
+    fsm_suber_ = this->create_subscription<unitree_api::msg::Response>(
+      "/api/sport/response", 10,
+      [this](const unitree_api::msg::Response::SharedPtr data) {
+        fsm_callback(data);
+      });
 
     pub_ = this->create_publisher<unitree_api::msg::Request>("/api/voice/request", 10);
+    // pub_loco_ = this->create_publisher<unitree_api::msg::Request>("/api/sport/request", 10);
   }
 
  private:
  rclcpp::Subscription<unitree_go::msg::WirelessController>::SharedPtr suber_;
+ rclcpp::Subscription<unitree_api::msg::Response>::SharedPtr fsm_suber_;
  rclcpp::Publisher<unitree_api::msg::Request>::SharedPtr pub_;
+ // rclcpp::Publisher<unitree_api::msg::Request>::SharedPtr pub_loco_;
+
+ unitree::robot::g1::LocoClient loco_client_;
+ unitree::ros2::g1::AudioClient audio_client_;
 
  bool once_flag = true;
  bool playing_flag = false;
 
  uint32_t tts_index_ = 0;
  std::string audio_file_path;
+
+ int fsm_id = 0;
+
+ void fsm_callback(const unitree_api::msg::Response::SharedPtr& data) {
+  nlohmann::json js = nlohmann::json::parse(data->data);
+  js["data"].get_to(fsm_id);
+
+  // RCLCPP_INFO(this->get_logger(), "Current fsm id: %i", fsm_id);
+ }
 
   void topic_callback(const unitree_go::msg::WirelessController::SharedPtr& data) {
     if ((data->keys == 1280) && (once_flag)) {
@@ -96,6 +120,15 @@ class WirelessControllerSuber : public rclcpp::Node {
           "pump",
           std::to_string(unitree::common::GetCurrentTimeMilliseconds()), pcm);
       }
+    } else if ((data->keys == 128) && (once_flag)) {  // F3
+      // unitree_api::msg::Request req;
+      // req.header.identity.api_id = ROBOT_API_ID_LOCO_GET_FSM_ID;
+      // nlohmann::json js;
+      // pub_loco_->publish(req);
+
+      std::string tts_text = "Currently in fsm mode " + std::to_string(fsm_id);
+      audio_client_.TtsMaker(tts_text, 1);
+      once_flag = true;
     } else if ((data->keys == 0) && !(once_flag)) {
       once_flag = true;
     }
@@ -286,8 +319,17 @@ class WirelessControllerSuber : public rclcpp::Node {
 
 int main(int argc, char* argv[]) {
   rclcpp::init(argc, argv);  // Initialize rclcpp
+  std::string param1 = "unchanged";
+  if (argc > 1) {
+    param1 = argv[1];
+    if (param1 != "test") {
+      std::cerr << "Param must be 'test'" << std::endl;
+      return 1;
+    }
+  }
+
   // Run ROS2 node which is make share with wireless_controller_suber class
-  rclcpp::spin(std::make_shared<WirelessControllerSuber>());
+  rclcpp::spin(std::make_shared<WirelessControllerSuber>(param1));
   rclcpp::shutdown();
   return 0;
 }

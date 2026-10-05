@@ -55,6 +55,12 @@ install(TARGETS g1_gesture_control)
 install(TARGETS hands_controller)
 install(TARGETS wireless_controller_test)
 
+install(TARGETS
+	g1_gesture_control
+	hands_controller
+	wireless_controller_test
+	DESTINATION lib/${PROJECT_NAME})
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights

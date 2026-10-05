@@ -146,6 +146,7 @@ static constexpr double max_j = 2.5;
   float kp_{60.0F}, kd_{1.5F};
   float control_dt_{0.02F};
   float move_duration_ = 3.0F;
+  float pd_scale = 4.0;
 
   std::array<float, NUM_ARM_JOINTS> curent_arm_pos_{};      // The robot's current pos from lowstate
   std::array<float, NUM_ARM_JOINTS> init_arm_pos_{};
@@ -302,8 +303,8 @@ static constexpr double max_j = 2.5;
       // cmd.motor_cmd[idx].dq = 0.0F;
       cmd.motor_cmd[idx].tau = 0.0F;
       if (i < 3) {
-        cmd.motor_cmd[idx].kp = kp_ * 4.0F;
-        cmd.motor_cmd[idx].kd = kd_ * 4.0F;
+        cmd.motor_cmd[idx].kp = kp_ * pd_scale;
+        cmd.motor_cmd[idx].kd = kd_ * pd_scale;
       } else {
         cmd.motor_cmd[idx].kp = kp_;
         cmd.motor_cmd[idx].kd = kd_;
@@ -337,8 +338,8 @@ static constexpr double max_j = 2.5;
       // cmd.motor_cmd[idx].dq = 0.0F;
       cmd.motor_cmd[idx].tau = 0.0F;
       if (i < 3) {
-        cmd.motor_cmd[idx].kp = kp_ * 4.0F;
-        cmd.motor_cmd[idx].kd = kd_ * 4.0F;
+        cmd.motor_cmd[idx].kp = kp_ * pd_scale;
+        cmd.motor_cmd[idx].kd = kd_ * pd_scale;
       } else {
         cmd.motor_cmd[idx].kp = kp_;
         cmd.motor_cmd[idx].kd = kd_;
@@ -351,6 +352,7 @@ static constexpr double max_j = 2.5;
   }
 
   void ExitCustom() {
+    pd_scale = 4.0;
     for (int i = 0; i < DOF; i++) {
       input_.max_velocity[i]         = 0.5;
       input_.max_acceleration[i]     = 1.0;
@@ -403,11 +405,11 @@ static constexpr double max_j = 2.5;
   void WirelessCallback(const unitree_go::msg::WirelessController::SharedPtr& data) {
     // Buttons flip the btn_flag (flaps back when released), the busy_flag (flips back when gesture completes), and e_stop flag (flips back when gesture completes)
     if ((data->keys == 258) && (btn_flag)) {        // L1 + A
-      for (int i = 0; i < DOF; i++) {
-        input_.max_velocity[i]         = 2.0;
-        input_.max_acceleration[i]     = 4.0;
-        input_.max_jerk[i]             = 8.0;
-      }
+      // for (int i = 0; i < DOF; i++) {
+      //   input_.max_velocity[i]         = 2.0;
+      //   input_.max_acceleration[i]     = 4.0;
+      //   input_.max_jerk[i]             = 8.0;
+      // }
       CsvButton("gestures/ymca.csv");
       btn_flag = false;
     } else if ((data->keys == 514) && (btn_flag)) { // L1 + B
@@ -423,20 +425,29 @@ static constexpr double max_j = 2.5;
       CsvButton("gestures/wings.csv");
       btn_flag = false;
     } else if ((data->keys == 20) && (btn_flag)) { // R2 + START
-      PointButton(0, static_gestures.Stand_By);
+      PointButton(5, static_gestures.Stand_By);
       btn_flag = false;
+    } else if ((data->keys == 24) && (btn_flag)) { // R2 + SELECT
+      PointButton(0, static_gestures.Pre_Point, {1.0, 2.0, 4.0});
+      btn_flag = false;
+      pd_scale = 5.0;
     } else if ((data->keys == 32784) && (btn_flag)) { // R2 + LEFT
       PointButton(1, static_gestures.Point_Left);
       btn_flag = false;
+      pd_scale = 5.0;
     } else if ((data->keys == 8208) && (btn_flag)) { // R2 + RIGHT
-      PointButton(2, static_gestures.Point_Right, {1.0, 2.0, 5.0});
+      //PointButton(2, static_gestures.Point_Right, {1.0, 2.0, 5.0});
+      PointButton(2, static_gestures.Point_Right);
       btn_flag = false;
+      pd_scale = 5.0;
     } else if ((data->keys == 4112) && (btn_flag)) { // R2 + UP
-      PointButton(3, static_gestures.Arm_Forward);
+      PointButton(3, static_gestures.Point_Left_v2, {1.0, 2.0, 4.0});
       btn_flag = false;
+      pd_scale = 5.0;
     } else if ((data->keys == 16400) && (btn_flag)) { // R2 + DOWN
-      PointButton(4, static_gestures.Arm_Backward);
+      PointButton(4, static_gestures.Point_Right_v2, {1.0, 2.0, 4.0});
       btn_flag = false;
+      pd_scale = 5.0;
     } else if ((data->keys == 6) && (btn_flag)) { // L1 + START
       if (waiting_for_user) {
         user_flag = true;

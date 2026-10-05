@@ -61,8 +61,17 @@ add_executable(g1_lowcmd_ik_arms_fast_r src/g1_lowcmd_ik_arms_fast_r.cpp src/com
 ament_target_dependencies(g1_lowcmd_ik_arms_fast_r ${DEPENDENCY_LIST})
 target_link_libraries(g1_lowcmd_ik_arms_fast_r ruckig::ruckig)
 
+add_executable(g1_lowcmd_ik_arms_fast_l src/g1_lowcmd_ik_arms_fast_l.cpp src/common/motor_crc_hg.cpp)
+ament_target_dependencies(g1_lowcmd_ik_arms_fast_l ${DEPENDENCY_LIST})
+target_link_libraries(g1_lowcmd_ik_arms_fast_l ruckig::ruckig)
+
+add_executable(g1_demo_grasp src/g1_demo_grasp.cpp)
+ament_target_dependencies(g1_demo_grasp ${DEPENDENCY_LIST})
+
 install(TARGETS g1_lowcmd_ik_arms_fast)
 install(TARGETS g1_lowcmd_ik_arms_fast_r)
+install(TARGETS g1_lowcmd_ik_arms_fast_l)
+install(TARGETS g1_demo_grasp)
 
 install(
 DIRECTORY launch
@@ -76,6 +85,7 @@ install(TARGETS
 ament_python_install_package(${PROJECT_NAME})
 
 install(PROGRAMS
+	scripts/g1_news_demo.py
 	scripts/g1_tele_middle.py
 	scripts/g1_tele_pen.py
 	scripts/g1_tele_plan.py
