@@ -5,7 +5,7 @@ from tf2_ros.transform_listener import TransformListener
 from tf2_ros.buffer import Buffer
 from tf2_ros import TransformException, TransformBroadcaster
 import numpy as np
-from g1_ik.robot_arm_ik_v3 import G1_29_ArmIK
+from g1_ik.robot_arm_ik_v2 import G1_29_ArmIK
 from sensor_msgs.msg import Joy
 from trajectory_msgs.msg import JointTrajectoryPoint
 from geometry_msgs.msg import TransformStamped
@@ -173,7 +173,7 @@ class IkSolverNode(Node):
                 if self.get_pin_fk:
                     self.get_pin_fk = False
                     self.set_matrix(pin_t, pin_r, 0)
-                    r_pin_t, r_pin_r = self.arm_ik.get_fk_r(np.array([ joint.q for joint in self.current_arms.motor_states]))
+                    r_pin_t, r_pin_r, r_pin_q = self.arm_ik.get_fk_r(np.array([ joint.q for joint in self.current_arms.motor_states]))
                     self.set_matrix(r_pin_t, r_pin_r, 1)
                 #time_start = time.time()
                 sol_q, sol_tauff  = self.arm_ik.solve_ik(self.left_ee_matrix, self.right_ee_matrix, np.array([ joint.q for joint in self.current_arms.motor_states]), np.array([ joint.dq for joint in self.current_arms.motor_states]))

@@ -98,14 +98,14 @@ class G1_29_ArmIK:
                 pin.Frame('L_ee',
                           self.reduced_robot.model.getJointId('left_wrist_yaw_joint'),
                           pin.SE3(np.eye(3),
-                                  np.array([0.075,0,0]).T),
+                                  np.array([0.125,0,0]).T),
                           pin.FrameType.OP_FRAME)
             )
             self.reduced_robot.model.addFrame(
                 pin.Frame('R_ee',
                           self.reduced_robot.model.getJointId('right_wrist_yaw_joint'),
                           pin.SE3(np.eye(3),
-                                  np.array([0.075,0,0]).T),
+                                  np.array([0.125,0,0]).T),
                           pin.FrameType.OP_FRAME)
             )
             # Save cache (only after everything is built)
