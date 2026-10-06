@@ -18,6 +18,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/G1JointsDebug.msg"
   "msg/G1Plan.msg"
   "msg/G1Point.msg"
+  "msg/StatusRequest.msg"
 )
 
 if(BUILD_TESTING)

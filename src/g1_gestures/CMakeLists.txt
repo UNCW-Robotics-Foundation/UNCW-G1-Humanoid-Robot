@@ -48,18 +48,23 @@ target_link_libraries(g1_gesture_control ruckig::ruckig)
 add_executable(hands_controller src/hands_controller.cpp)
 ament_target_dependencies(hands_controller ${DEPENDENCY_LIST})
 
-add_executable(wireless_controller_test src/wireless_controller_test.cpp)
-ament_target_dependencies(wireless_controller_test ${DEPENDENCY_LIST})
+add_executable(robot_status src/robot_status.cpp)
+ament_target_dependencies(robot_status ${DEPENDENCY_LIST})
 
 install(TARGETS g1_gesture_control)
 install(TARGETS hands_controller)
-install(TARGETS wireless_controller_test)
+install(TARGETS robot_status)
 
 install(TARGETS
 	g1_gesture_control
 	hands_controller
-	wireless_controller_test
+	robot_status
 	DESTINATION lib/${PROJECT_NAME})
+	
+install(
+DIRECTORY launch
+DESTINATION share/${PROJECT_NAME}
+)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

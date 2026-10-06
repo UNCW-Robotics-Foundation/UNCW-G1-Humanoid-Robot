@@ -11,10 +11,13 @@
 #include <string>
 #include "sensor_msgs/msg/joy.hpp"
 #include "unitree_go/msg//wireless_controller.hpp"
+#include "unitree_api/msg/response.hpp"
 
 #include "g1/g1.hpp"
 #include "g1/gestures.hpp"
 #include "ruckig/ruckig.hpp"
+#include "g1_msgs/msg/status_request.hpp"
+#include "nlohmann/json.hpp"
 
 /*
 
@@ -103,18 +106,26 @@ static constexpr double max_j = 2.5;
       measured_velocity_[i] = 0.0;
     }
 
-    //pub_ = this->create_publisher<LowCmd>("/lowcmd", 10); // uncomment for Mujoco
-    pub_ = this->create_publisher<LowCmd>("/arm_sdk", 10);  // uncomment for real robot
+    pub_ = this->create_publisher<LowCmd>("/lowcmd", 10); // uncomment for Mujoco
+    //pub_ = this->create_publisher<LowCmd>("/arm_sdk", 10);  // uncomment for real robot
+
+    status_pub_ = this->create_publisher<g1_msgs::msg::StatusRequest>("/gesture_status", 10);  // uncomment for real robot
 
     sub_ = this->create_subscription<LowState>(
-        "/lowstate", 10,
-        [this](const LowState::SharedPtr msg) { StateCallback(msg); });
+      "/lowstate", 10,
+      [this](const LowState::SharedPtr msg) { StateCallback(msg); });
 
     suber_ = this->create_subscription<unitree_go::msg::WirelessController>(
-        "/wirelesscontroller", 10,
-        [this](const unitree_go::msg::WirelessController::SharedPtr data) {
-          WirelessCallback(data);
-        }); 
+      "/wirelesscontroller", 10,
+      [this](const unitree_go::msg::WirelessController::SharedPtr data) {
+        WirelessCallback(data);
+      }); 
+
+    fsm_suber_ = this->create_subscription<unitree_api::msg::Response>(
+      "/api/sport/response", 10,
+      [this](const unitree_api::msg::Response::SharedPtr data) {
+        fsm_callback(data);
+      });
 
     // A seperate thread is created for managing the control loop
     timer_ = create_wall_timer(std::chrono::duration<double>(CONTROL_DT), std::bind(&CustomGestureController::Main_Control, this));
@@ -123,8 +134,10 @@ static constexpr double max_j = 2.5;
 
  private:
   rclcpp::Publisher<LowCmd>::SharedPtr pub_;
+  rclcpp::Publisher<g1_msgs::msg::StatusRequest>::SharedPtr status_pub_;
   rclcpp::Subscription<LowState>::SharedPtr sub_;
   rclcpp::Subscription<unitree_go::msg::WirelessController>::SharedPtr suber_;
+  rclcpp::Subscription<unitree_api::msg::Response>::SharedPtr fsm_suber_;
   rclcpp::TimerBase::SharedPtr timer_;
 
   LowState current_low_state_;
@@ -164,6 +177,9 @@ static constexpr double max_j = 2.5;
   std::array<double, DOF> measured_velocity_{};
 
   std::mutex target_mutex_;
+
+  bool main_gesture_flag = true;
+  int fsm_id = 801;
 
   void Main_Control() {
     // TODO: Add third flag for fsm state. Only want to perform gestures when in running mode.
@@ -403,6 +419,32 @@ static constexpr double max_j = 2.5;
   robot running mode.
   */
   void WirelessCallback(const unitree_go::msg::WirelessController::SharedPtr& data) {
+    // Method for avoiding held presses. While btn_flag is false, nothing happens. 2 is the value for LB,
+    // so users can hold lb and press a button without needing to let go of everything everytime
+    if ((data->keys <= 2) && !(btn_flag)) {
+      btn_flag = true;
+    }
+    if ((!main_gesture_flag) || (fsm_id != 801)) {
+      if ((data->keys == 132) && (btn_flag)) { // F3 + START
+        g1_msgs::msg::StatusRequest req;
+        req.code = 0;
+        if (main_gesture_flag) {
+          req.flag = false;
+          main_gesture_flag = false;
+          status_pub_->publish(req);
+          RCLCPP_INFO(this->get_logger(), "Custom gestures off");
+        } else {
+          req.flag = true;
+          main_gesture_flag = true;
+          status_pub_->publish(req);
+          RCLCPP_INFO(this->get_logger(), "Custom gestures on");
+        }
+
+        btn_flag = false;
+      }
+      return;
+    }
+
     // Buttons flip the btn_flag (flaps back when released), the busy_flag (flips back when gesture completes), and e_stop flag (flips back when gesture completes)
     if ((data->keys == 258) && (btn_flag)) {        // L1 + A
       // for (int i = 0; i < DOF; i++) {
@@ -453,11 +495,15 @@ static constexpr double max_j = 2.5;
         user_flag = true;
       }
       btn_flag = false;
-    }
-    // Method for avoiding held presses. While btn_flag is false, nothing happens. 2 is th value for LB,
-    // so users can hold lb and press a button without needing to let go of everything everytime
-      else if ((data->keys <= 2) && !(btn_flag)) {
-      btn_flag = true;
+    } else if ((data->keys == 132) && (btn_flag)) { // F3 + START
+      g1_msgs::msg::StatusRequest req;
+      req.code = 0;
+      req.flag = false;
+      main_gesture_flag = false;
+      RCLCPP_INFO(this->get_logger(), "Custom gestures off");
+      status_pub_->publish(req);
+
+      btn_flag = false;
     }
 
   }
@@ -525,6 +571,13 @@ static constexpr double max_j = 2.5;
       }
     }
   }
+
+  void fsm_callback(const unitree_api::msg::Response::SharedPtr& data) {
+    nlohmann::json js = nlohmann::json::parse(data->data);
+    js["data"].get_to(fsm_id);
+
+  // RCLCPP_INFO(this->get_logger(), "Current fsm id: %i", fsm_id);
+ }
 
 };
 

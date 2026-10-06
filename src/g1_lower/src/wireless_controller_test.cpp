@@ -68,6 +68,8 @@ class WirelessControllerSuber : public rclcpp::Node {
 
     pub_ = this->create_publisher<unitree_api::msg::Request>("/api/voice/request", 10);
     // pub_loco_ = this->create_publisher<unitree_api::msg::Request>("/api/sport/request", 10);
+
+    timer_ = this->create_wall_timer(std::chrono::milliseconds(10), [this] { Control(); });
   }
 
  private:
@@ -76,16 +78,82 @@ class WirelessControllerSuber : public rclcpp::Node {
  rclcpp::Publisher<unitree_api::msg::Request>::SharedPtr pub_;
  // rclcpp::Publisher<unitree_api::msg::Request>::SharedPtr pub_loco_;
 
+ rclcpp::TimerBase::SharedPtr timer_;
+
  unitree::robot::g1::LocoClient loco_client_;
  unitree::ros2::g1::AudioClient audio_client_;
 
  bool once_flag = true;
  bool playing_flag = false;
+ bool led_flag = false;
+ bool save_time_flag = true;
 
  uint32_t tts_index_ = 0;
  std::string audio_file_path;
 
  int fsm_id = 0;
+ double saved_time;
+ int rgb_setting = 0;
+
+ void Control() {
+  if (led_flag) {
+    std::string txt = "Sending command. led_flag = " + std::to_string(led_flag);
+    if (save_time_flag) {
+      RCLCPP_INFO(this->get_logger(), txt.c_str());
+      save_time_flag = false;
+      saved_time = this->get_clock()->now().seconds();
+
+      unitree_api::msg::Request req;
+      req.header.identity.api_id = ROBOT_API_ID_AUDIO_SET_RGB_LED;
+      nlohmann::json js;
+      switch (rgb_setting)
+      {
+      case 0:
+        js["R"] = 249;
+        js["G"] = 227;
+        js["B"] = 0;
+        // js["R"] = 0;
+        // js["G"] = 51;
+        // js["B"] = 102;
+        break;
+
+      case 1:
+        // js["R"] = 249;
+        // js["G"] = 227;
+        // js["B"] = 127;
+        js["R"] = 249;
+        js["G"] = 227;
+        js["B"] = 10;
+        break;
+      
+      case 2:
+        // js["R"] = 0;
+        // js["G"] = 118;
+        // js["B"] = 128;
+        js["R"] = 255;
+        js["G"] = 255;
+        js["B"] = 40;
+        break;
+      
+      default:
+        break;
+      }
+
+      req.parameter = js.dump();
+      pub_->publish(req);
+    } else if (this->get_clock()->now().seconds() - saved_time > 2.01) {
+      save_time_flag = true;
+      if (rgb_setting < 2) {
+        rgb_setting ++;
+      } else {
+        rgb_setting = 0;
+      }
+      RCLCPP_INFO(this->get_logger(), "Switching color to %i", rgb_setting);
+    }
+
+    // RCLCPP_INFO(this->get_logger(), "time elapsed: %f; led_control: %s", this->get_clock()->now().seconds() - saved_time, txt.c_str());
+  }
+ }
 
  void fsm_callback(const unitree_api::msg::Response::SharedPtr& data) {
   nlohmann::json js = nlohmann::json::parse(data->data);
@@ -128,7 +196,15 @@ class WirelessControllerSuber : public rclcpp::Node {
 
       std::string tts_text = "Currently in fsm mode " + std::to_string(fsm_id);
       audio_client_.TtsMaker(tts_text, 1);
-      once_flag = true;
+      once_flag = false;
+    } else if ((data->keys == 64) && (once_flag)) {  // F1
+      if (led_flag) {
+        led_flag = false;
+      } else {
+        led_flag = true;
+      }
+      RCLCPP_INFO(this->get_logger(), "led_flag switching to %s", std::to_string(led_flag).c_str());
+      once_flag = false;
     } else if ((data->keys == 0) && !(once_flag)) {
       once_flag = true;
     }

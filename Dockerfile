@@ -28,7 +28,7 @@ RUN git clone https://github.com/Art3mi0/unitree_ros2.git
 RUN cd unitree_ros2/cyclonedds_ws && source /opt/ros/$ROS_DISTRO/setup.bash && colcon build
 
 RUN git clone https://github.com/UNCW-Robotics-Foundation/UNCW-G1-Humanoid-Robot
-RUN source unitree_ros2/setup.sh && cd UNCW-G1-Humanoid-Robot && colcon build --packages-select g1_msgs g1_lower
+RUN source unitree_ros2/setup.sh && cd UNCW-G1-Humanoid-Robot && colcon build --packages-select g1_msgs g1_gestures
 
 COPY entrypoint.sh /entrypoint.sh
 
