@@ -17,6 +17,7 @@ RUN apt-get update && apt-get install -y \
         ros-${ROS_DISTRO}-rmw-cyclonedds-cpp \
         ros-${ROS_DISTRO}-rosidl-generator-dds-idl \
         ros-${ROS_DISTRO}-teleop-twist-keyboard \
+        ros-${ROS_DISTRO}-ruckig \
         ros-${ROS_DISTRO}-demo-nodes-cpp \
         ros-${ROS_DISTRO}-demo-nodes-py && \
     rm -rf /var/lib/apt/lists/*
@@ -24,7 +25,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /home
 
 RUN git clone https://github.com/Art3mi0/unitree_ros2.git
-# RUN git clone -b enp2s0 https://github.com/Art3mi0/unitree_ros2.git
+#RUN git clone -b enp2s0 https://github.com/Art3mi0/unitree_ros2.git
 RUN cd unitree_ros2/cyclonedds_ws && source /opt/ros/$ROS_DISTRO/setup.bash && colcon build
 
 RUN git clone https://github.com/UNCW-Robotics-Foundation/UNCW-G1-Humanoid-Robot
