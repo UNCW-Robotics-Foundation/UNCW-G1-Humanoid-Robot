@@ -13,8 +13,6 @@
 #include <fstream>
 #include "unitree_api/msg/request.hpp"
 #include "unitree_api/msg/response.hpp"
-#include "g1/g1_loco_client.hpp"
-#include "g1/g1_audio_client.hpp"
 #include "g1_msgs/msg/status_request.hpp"
 
 constexpr int32_t ROBOT_API_ID_AUDIO_TTS = 1001;
@@ -52,7 +50,7 @@ struct WaveHeader {
 
 class WirelessControllerSuber : public rclcpp::Node {
  public:
-  WirelessControllerSuber() : Node("wireless_controller_suber"), loco_client_(this), audio_client_() {
+  WirelessControllerSuber() : Node("wireless_controller_suber") {
     // the cmd_puber is set to subscribe "/wirelesscontroller" topic
     // suber_ = this->create_subscription<unitree_go::msg::WirelessController>(
     //   "/wirelesscontroller", 10,
@@ -86,9 +84,6 @@ class WirelessControllerSuber : public rclcpp::Node {
  // rclcpp::Publisher<unitree_api::msg::Request>::SharedPtr pub_loco_;
 
  rclcpp::TimerBase::SharedPtr timer_;
-
- unitree::robot::g1::LocoClient loco_client_;
- unitree::ros2::g1::AudioClient audio_client_;
 
  bool once_flag = true;
  bool playing_flag = false;
@@ -189,8 +184,13 @@ class WirelessControllerSuber : public rclcpp::Node {
  }
 
  void fsm_callback(const unitree_api::msg::Response::SharedPtr& data) {
-  nlohmann::json js = nlohmann::json::parse(data->data);
-  js["data"].get_to(fsm_id);
+  try {
+    nlohmann::json js = nlohmann::json::parse(data->data);
+    js["data"].get_to(fsm_id);
+  }
+  catch (const nlohmann::json::parse_error& e) {
+    RCLCPP_ERROR(this->get_logger(), "json parsing error");
+  }
 
   // RCLCPP_INFO(this->get_logger(), "Current fsm id: %i", fsm_id);
  }
@@ -228,7 +228,7 @@ class WirelessControllerSuber : public rclcpp::Node {
       // pub_loco_->publish(req);
 
       std::string tts_text = "Currently in fsm mode " + std::to_string(fsm_id);
-      audio_client_.TtsMaker(tts_text, 1);
+      // audio_client_.TtsMaker(tts_text, 1);
       once_flag = false;
     } else if ((data->keys == 64) && (once_flag)) {  // F1
       if (led_flag) {
@@ -428,9 +428,9 @@ class WirelessControllerSuber : public rclcpp::Node {
 
 int main(int argc, char* argv[]) {
   rclcpp::init(argc, argv);  // Initialize rclcpp
-
+  auto node = std::make_shared<WirelessControllerSuber>();
   // Run ROS2 node which is make share with wireless_controller_suber class
-  rclcpp::spin(std::make_shared<WirelessControllerSuber>());
+  rclcpp::spin(node);
   rclcpp::shutdown();
   return 0;
 }

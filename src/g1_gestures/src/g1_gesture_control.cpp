@@ -573,8 +573,13 @@ static constexpr double max_j = 2.5;
   }
 
   void fsm_callback(const unitree_api::msg::Response::SharedPtr& data) {
-    nlohmann::json js = nlohmann::json::parse(data->data);
-    js["data"].get_to(fsm_id);
+    try {
+      nlohmann::json js = nlohmann::json::parse(data->data);
+      js["data"].get_to(fsm_id);
+    }
+    catch (const nlohmann::json::parse_error& e) {
+      RCLCPP_ERROR(this->get_logger(), "json parsing error");
+    }
 
   // RCLCPP_INFO(this->get_logger(), "Current fsm id: %i", fsm_id);
  }
