@@ -106,8 +106,8 @@ static constexpr double max_j = 2.5;
       measured_velocity_[i] = 0.0;
     }
 
-    pub_ = this->create_publisher<LowCmd>("/lowcmd", 10); // uncomment for Mujoco
-    //pub_ = this->create_publisher<LowCmd>("/arm_sdk", 10);  // uncomment for real robot
+    //pub_ = this->create_publisher<LowCmd>("/lowcmd", 10); // uncomment for Mujoco
+    pub_ = this->create_publisher<LowCmd>("/arm_sdk", 10);  // uncomment for real robot
 
     status_pub_ = this->create_publisher<g1_msgs::msg::StatusRequest>("/gesture_status", 10);  // uncomment for real robot
 
@@ -178,8 +178,8 @@ static constexpr double max_j = 2.5;
 
   std::mutex target_mutex_;
 
-  bool main_gesture_flag = true;
-  int fsm_id = 801;
+  bool main_gesture_flag = false;
+  int fsm_id = 0;
 
   void Main_Control() {
     // TODO: Add third flag for fsm state. Only want to perform gestures when in running mode.

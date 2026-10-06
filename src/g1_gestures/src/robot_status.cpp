@@ -92,7 +92,7 @@ class WirelessControllerSuber : public rclcpp::Node {
 
  bool once_flag = true;
  bool playing_flag = false;
- bool led_flag = true;
+ bool led_flag = false;
  bool save_time_flag = true;
 
  uint32_t tts_index_ = 0;
@@ -104,9 +104,9 @@ class WirelessControllerSuber : public rclcpp::Node {
 
  void Control() {
   if ((led_flag) && (fsm_id == 801)) {
-    std::string txt = "Sending command. led_flag = " + std::to_string(led_flag);
+    //std::string txt = "Sending command. led_flag = " + std::to_string(led_flag);
     if (save_time_flag) {
-      RCLCPP_INFO(this->get_logger(), txt.c_str());
+      //RCLCPP_INFO(this->get_logger(), txt.c_str());
       save_time_flag = false;
       saved_time = this->get_clock()->now().seconds();
 
@@ -149,7 +149,7 @@ class WirelessControllerSuber : public rclcpp::Node {
       } else {
         rgb_setting = 0;
       }
-      RCLCPP_INFO(this->get_logger(), "Switching color to %i", rgb_setting);
+      //RCLCPP_INFO(this->get_logger(), "Switching color to %i", rgb_setting);
     }
 
     // RCLCPP_INFO(this->get_logger(), "time elapsed: %f; led_control: %s", this->get_clock()->now().seconds() - saved_time, txt.c_str());
