@@ -51,8 +51,14 @@ struct WaveHeader {
 
 class WirelessControllerSuber : public rclcpp::Node {
  public:
-  WirelessControllerSuber(std::string param1) : Node("wireless_controller_suber"), loco_client_(this), audio_client_() {
-    RCLCPP_INFO(this->get_logger(), "Current Parameter: %s", param1.c_str());
+  WirelessControllerSuber() : Node("wireless_controller_suber"), loco_client_(this), audio_client_() {
+    bool use_sim = declare_parameter<bool>("use_sim", false);
+    if (use_sim) {
+      RCLCPP_INFO(this->get_logger(), "Using Sim Settings");
+    } else {
+      RCLCPP_INFO(this->get_logger(), "Using Real Settings");
+    }
+    //RCLCPP_INFO(this->get_logger(), "Current Parameter: %s", param1.c_str());
     // the cmd_puber is set to subscribe "/wirelesscontroller" topic
     suber_ = this->create_subscription<unitree_go::msg::WirelessController>(
       "/wirelesscontroller", 10,
@@ -395,17 +401,18 @@ class WirelessControllerSuber : public rclcpp::Node {
 
 int main(int argc, char* argv[]) {
   rclcpp::init(argc, argv);  // Initialize rclcpp
-  std::string param1 = "unchanged";
-  if (argc > 1) {
-    param1 = argv[1];
-    if (param1 != "test") {
-      std::cerr << "Param must be 'test'" << std::endl;
-      return 1;
-    }
-  }
+  // std::string param1 = "unchanged";
+  // std::cerr << "arg size: " << argc << std::endl;
+  // if (argc > 1) {
+  //   param1 = argv[1];
+  //   if (param1 != "test") {
+  //     std::cerr << "Param must be 'test'" << std::endl;
+  //     return 1;
+  //   }
+  // }
 
   // Run ROS2 node which is make share with wireless_controller_suber class
-  rclcpp::spin(std::make_shared<WirelessControllerSuber>(param1));
+  rclcpp::spin(std::make_shared<WirelessControllerSuber>());
   rclcpp::shutdown();
   return 0;
 }

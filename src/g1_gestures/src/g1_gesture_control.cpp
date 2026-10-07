@@ -91,6 +91,8 @@ static constexpr double max_j = 2.5;
 
  public:
   CustomGestureController() : Node("custom_gesture_controller"), otg_(CONTROL_DT) {
+    bool is_sim = declare_parameter<bool>("is_sim", false);
+    bool use_xbox = declare_parameter<bool>("use_xbox", false);
 
     for (int i = 0; i < DOF; ++i) {
       input_.max_velocity[i]         = max_v;
@@ -106,22 +108,31 @@ static constexpr double max_j = 2.5;
       measured_velocity_[i] = 0.0;
     }
 
-    //pub_ = this->create_publisher<LowCmd>("/lowcmd", 10); // uncomment for Mujoco
-    pub_ = this->create_publisher<LowCmd>("/arm_sdk", 10);  // uncomment for real robot
+    if (is_sim) {
+      pub_ = this->create_publisher<LowCmd>("/lowcmd", 10);
+    } else {
+      pub_ = this->create_publisher<LowCmd>("/arm_sdk", 10);
+    }
 
     status_pub_ = this->create_publisher<g1_msgs::msg::StatusRequest>("/gesture_status", 10);  // uncomment for real robot
 
-    sub_ = this->create_subscription<LowState>(
+    lowstate_sub_ = this->create_subscription<LowState>(
       "/lowstate", 10,
       [this](const LowState::SharedPtr msg) { StateCallback(msg); });
 
-    suber_ = this->create_subscription<unitree_go::msg::WirelessController>(
+    controller_sub_ = this->create_subscription<unitree_go::msg::WirelessController>(
       "/wirelesscontroller", 10,
       [this](const unitree_go::msg::WirelessController::SharedPtr data) {
         WirelessCallback(data);
-      }); 
+      });
 
-    fsm_suber_ = this->create_subscription<unitree_api::msg::Response>(
+    joy_sub_ = this->create_subscription<sensor_msgs::msg::Joy>(
+      "joy", 10,
+      [this](const sensor_msgs::msg::Joy::SharedPtr data) {
+      JoyHandler(data);
+      });
+
+    fsm_sub_ = this->create_subscription<unitree_api::msg::Response>(
       "/api/sport/response", 10,
       [this](const unitree_api::msg::Response::SharedPtr data) {
         fsm_callback(data);
@@ -135,9 +146,10 @@ static constexpr double max_j = 2.5;
  private:
   rclcpp::Publisher<LowCmd>::SharedPtr pub_;
   rclcpp::Publisher<g1_msgs::msg::StatusRequest>::SharedPtr status_pub_;
-  rclcpp::Subscription<LowState>::SharedPtr sub_;
-  rclcpp::Subscription<unitree_go::msg::WirelessController>::SharedPtr suber_;
-  rclcpp::Subscription<unitree_api::msg::Response>::SharedPtr fsm_suber_;
+  rclcpp::Subscription<LowState>::SharedPtr lowstate_sub_;
+  rclcpp::Subscription<unitree_go::msg::WirelessController>::SharedPtr controller_sub_;
+  rclcpp::Subscription<unitree_api::msg::Response>::SharedPtr fsm_sub_;
+  rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr joy_sub_;
   rclcpp::TimerBase::SharedPtr timer_;
 
   LowState current_low_state_;
@@ -408,6 +420,10 @@ static constexpr double max_j = 2.5;
 
     RCLCPP_INFO(this->get_logger(), "Custom Gestures Exited");
 
+  }
+
+  void JoyHandler(sensor_msgs::msg::Joy::SharedPtr message) {
+    
   }
 
   /*

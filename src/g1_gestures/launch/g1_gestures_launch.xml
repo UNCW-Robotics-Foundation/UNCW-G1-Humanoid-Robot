@@ -1,5 +1,0 @@
-<launch>
-  <node pkg="g1_gestures" exec="g1_gesture_control" name="robot_gestures" />
-  <node pkg="g1_gestures" exec="robot_status" name="robot_status" />
-  <node pkg="g1_gestures" exec="hands_controller" name="robot_hands" />
-</launch>
