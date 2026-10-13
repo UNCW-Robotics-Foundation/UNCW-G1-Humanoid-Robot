@@ -22,6 +22,9 @@ set (
   DEPENDENCY_LIST
   g1_msgs
   geometry_msgs
+  PCL
+  pcl_conversions
+  pcl_ros
   rclcpp
   rosbag2_cpp
   ruckig
@@ -40,6 +43,8 @@ find_package(ament_cmake_python REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(g1_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(pcl_conversions REQUIRED)
+find_package(pcl_ros REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclpy REQUIRED)
 find_package(rosbag2_cpp REQUIRED)
@@ -52,6 +57,7 @@ find_package(tf2_ros REQUIRED)
 find_package(unitree_api REQUIRED)
 find_package(unitree_go REQUIRED)
 find_package(unitree_hg REQUIRED)
+find_package(PCL REQUIRED COMPONENTS common filters)
 
 add_executable(bag_test src/bag_test.cpp src/common/motor_crc_hg.cpp)
 ament_target_dependencies(bag_test ${DEPENDENCY_LIST})
@@ -61,6 +67,13 @@ ament_target_dependencies(csv_gesture_test ${DEPENDENCY_LIST})
 
 add_executable(bag_to_txt src/bag_to_txt.cpp)
 ament_target_dependencies(bag_to_txt ${DEPENDENCY_LIST})
+
+add_executable(cam_filter src/cam_filter.cpp)
+ament_target_dependencies(cam_filter ${DEPENDENCY_LIST})
+target_link_libraries(cam_filter ${PCL_LIBRARIES})
+
+add_executable(cam_frame_node src/cam_frame_node.cpp)
+ament_target_dependencies(cam_frame_node ${DEPENDENCY_LIST})
 
 add_executable(g1_ankle_swing_example src/g1_ankle_swing_example.cpp src/common/motor_crc_hg.cpp)
 ament_target_dependencies(g1_ankle_swing_example ${DEPENDENCY_LIST})
@@ -92,6 +105,9 @@ ament_target_dependencies(g1_ruckig_controller ${DEPENDENCY_LIST})
 add_executable(hands_controller src/hands_controller.cpp)
 ament_target_dependencies(hands_controller ${DEPENDENCY_LIST})
 
+add_executable(hands_reconfigure src/hands_reconfigure.cpp)
+ament_target_dependencies(hands_reconfigure ${DEPENDENCY_LIST})
+
 add_executable(hands_test src/hands_test.cpp)
 ament_target_dependencies(hands_test ${DEPENDENCY_LIST})
 
@@ -115,6 +131,8 @@ ament_target_dependencies(wireless_controller_test ${DEPENDENCY_LIST})
 
 install(TARGETS bag_test)
 install(TARGETS bag_to_txt)
+install(TARGETS cam_filter)
+install(TARGETS cam_frame_node)
 install(TARGETS csv_gesture_test)
 install(TARGETS g1_ankle_swing_example)
 install(TARGETS g1_arms_test)
@@ -126,6 +144,7 @@ install(TARGETS g1_lowcmd_listener)
 install(TARGETS g1_lowcmd_test)
 install(TARGETS g1_ruckig_controller)
 install(TARGETS hands_controller)
+install(TARGETS hands_reconfigure)
 install(TARGETS hands_test)
 install(TARGETS jointstate_lowcmd_bridge)
 install(TARGETS loco_client_test)
@@ -140,6 +159,8 @@ DESTINATION share/${PROJECT_NAME}
 )
 
 install(TARGETS
+	cam_filter
+	cam_frame_node
 	loco_client_test
 	wireless_controller_test
 	g1_gesture_control

@@ -68,7 +68,7 @@ class HandsTest : public rclcpp::Node {
   bool state_received_ = false;
   bool touch_state_received_ = false;
   bool touch_flag = false;
-  int test = 0;
+  int test = 3;
 
   void StateCallback(const unitree_go::msg::MotorStates::SharedPtr msg) {
     current_state = *msg;
@@ -254,6 +254,7 @@ class HandsTest : public rclcpp::Node {
         handCmds.cmds = tmpCommands;
         pub_->publish(handCmds);
 
+        {
         int count = 0;
         RCLCPP_INFO(this->get_logger(), "Waiting for touch...");
         while (count < steps*2) {
@@ -278,7 +279,29 @@ class HandsTest : public rclcpp::Node {
           count++;
           std::this_thread::sleep_for(sleep_time_);
         }
+        }
         RCLCPP_INFO(this->get_logger(), "Stopped waiting...");
+        break;
+
+      case 3:
+        while (!(state_received_) || !(touch_state_received_)){
+          RCLCPP_INFO(this->get_logger(), "Waiting for initial hand pose and touch data...");
+          std::this_thread::sleep_for(100ms);
+        }
+        RCLCPP_INFO(this->get_logger(), "Opening hand...");
+        positions = {0, 0, 0.2, 0, 0, 0};
+        for (int i = 0; i < 6; i++) {
+            unitree_go::msg::MotorCmd handCmd;
+            handCmd.q = positions[i];
+            handCmd.dq = 1.0F;
+            handCmd.tau = 0.0F;
+            handCmd.kp = 0.0F;
+            handCmd.kd = 0.0F;
+            handCmd.mode = 0;
+            tmpCommands.push_back(handCmd);
+        }
+        handCmds.cmds = tmpCommands;
+        pub_->publish(handCmds);
         break;
     }
   }

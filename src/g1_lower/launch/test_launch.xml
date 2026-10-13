@@ -1,0 +1,10 @@
+<launch>
+  <node pkg="g1_lower" exec="cam_frame_node" name="cam_frame" >
+  	<param name="cam_x" value="0.0" />
+  	<param name="cam_y" value="0.0" />
+  	<param name="cam_z" value="0.0" />
+  	<param name="cam_roll" value="0.0" />
+  	<param name="cam_pitch" value="0.0" />
+  	<param name="cam_yaw" value="0.0" />
+  </node>
+</launch>
