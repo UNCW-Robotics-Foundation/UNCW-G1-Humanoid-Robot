@@ -1,26 +1,5 @@
 #!/bin/bash
 
-# ==============================================================
-# brainco_hand_service Auto-Start Setup Script
-# --------------------------------------------------------------
-# This script sets up a systemd service to automatically start
-# the brainco_hand_service on system boot.
-#
-# Usage:
-#   bash setup_autostart.sh
-#
-# After setup, manage the service with:
-#   sudo systemctl status brainco_hand.service     # Check status
-#   sudo journalctl -u brainco_hand.service -f     # View logs
-#   sudo systemctl stop $SERVICE_NAME              # Stop service
-#   sudo systemctl restart brainco_hand.service    # Restart service
-#   sudo systemctl disable brainco_hand.service    # Disable auto-start on boot
-#
-# Author: https://github.com/silencht
-# Company: Unitree Robotics
-# Copyright © 2016–2025 YuShu Technology Co., Ltd. All Rights Reserved.
-# ==============================================================
-
 set -e
 echo "=== Setting up brainco_hand auto-start service ==="
 
@@ -42,14 +21,15 @@ else
 	sudo tee $SERVICE_FILE > /dev/null << EOL
 [Unit]
 Description=Brainco Hand Service Start
-After=multi-user.target
+Wants=network-online.target
+After=network-online.target
 
 [Service]
 Type=simple
 User=$USER
 Group=dialout
 ExecStart=$SCRIPT_PATH
-Restart=always
+Restart=on-failure
 RestartSec=5
 StandardOutput=journal+console
 StandardError=journal+console
