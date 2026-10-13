@@ -66,7 +66,8 @@ std::array<G1Arm7JointIndex, NUM_ARM_JOINTS> arm_joints_ = {
 enum Gesture_Type {
   Point,
   CSV,
-  Nothing
+  Nothing,
+  Wings
 };
 
 enum Robot_Status {
@@ -110,6 +111,8 @@ static constexpr double max_j = 2.5;
 
     if (is_sim) {
       pub_ = this->create_publisher<LowCmd>("/lowcmd", 10);
+      fsm_id = 801;
+      main_gesture_flag = true;
     } else {
       pub_ = this->create_publisher<LowCmd>("/arm_sdk", 10);
     }
@@ -238,6 +241,7 @@ static constexpr double max_j = 2.5;
       SendPositionCommandRuckig();
       break;
     }
+
     case CSV:
       if (csv_tracker >= csv_size) {
         e_stop = true;
@@ -286,6 +290,22 @@ static constexpr double max_j = 2.5;
       RCLCPP_INFO(this->get_logger(), "PLACEHOLDER");
       break;
     
+    case Wings: {
+      Result res = otg_.update(input_, output_);
+      if (res != Result::Working && res != Result::Finished) {
+        RCLCPP_ERROR(get_logger(), "Ruckig update failed (code %d)", static_cast<int>(res));
+        e_stop = true;
+        return;
+      } else if (res == Result::Finished) {
+        //RCLCPP_INFO(this->get_logger(), "Reached gesture");
+      }
+
+      output_.pass_to_input(input_);
+
+      SendPositionCommandRuckig();
+      break;
+    }
+
     default:
       e_stop = true;
       break;
@@ -470,42 +490,53 @@ static constexpr double max_j = 2.5;
       // }
       CsvButton("gestures/ymca.csv");
       btn_flag = false;
+      
     } else if ((data->keys == 514) && (btn_flag)) { // L1 + B
       CsvButton("gestures/raise.csv");
       btn_flag = false;
+
     } else if ((data->keys == 1026) && (btn_flag)) { // L1 + X
       CsvButton("gestures/rodeo.csv");
       btn_flag = false;
+
     } else if ((data->keys == 2050) && (btn_flag)) { // L1 + Y
       CsvButton("gestures/wave.csv");
       btn_flag = false;
+
     } else if ((data->keys == 4098) && (btn_flag)) { // L1 + UP
       CsvButton("gestures/wings.csv");
       btn_flag = false;
+
     } else if ((data->keys == 20) && (btn_flag)) { // R2 + START
       PointButton(5, static_gestures.Stand_By);
       btn_flag = false;
+
     } else if ((data->keys == 24) && (btn_flag)) { // R2 + SELECT
       PointButton(0, static_gestures.Pre_Point, {1.0, 2.0, 4.0});
       btn_flag = false;
       pd_scale = 5.0;
+
     } else if ((data->keys == 32784) && (btn_flag)) { // R2 + LEFT
-      PointButton(1, static_gestures.Point_Left);
-      btn_flag = false;
-      pd_scale = 5.0;
-    } else if ((data->keys == 8208) && (btn_flag)) { // R2 + RIGHT
-      //PointButton(2, static_gestures.Point_Right, {1.0, 2.0, 5.0});
-      PointButton(2, static_gestures.Point_Right);
-      btn_flag = false;
-      pd_scale = 5.0;
-    } else if ((data->keys == 4112) && (btn_flag)) { // R2 + UP
       PointButton(3, static_gestures.Point_Left_v2, {1.0, 2.0, 4.0});
       btn_flag = false;
       pd_scale = 5.0;
-    } else if ((data->keys == 16400) && (btn_flag)) { // R2 + DOWN
+
+    } else if ((data->keys == 8208) && (btn_flag)) { // R2 + RIGHT
+      //PointButton(2, static_gestures.Point_Right, {1.0, 2.0, 5.0});
       PointButton(4, static_gestures.Point_Right_v2, {1.0, 2.0, 4.0});
       btn_flag = false;
       pd_scale = 5.0;
+
+    } else if ((data->keys == 4112) && (btn_flag)) { // R2 + UP
+      WingButton(1, static_gestures.wings_up_mid, {0.5, 1.0, 2.5});
+      btn_flag = false;
+      pd_scale = 5.0;
+
+    } else if ((data->keys == 16400) && (btn_flag)) { // R2 + DOWN
+      WingButton(2, static_gestures.wings_up_base, {0.5, 1.0, 2.5});
+      btn_flag = false;
+      pd_scale = 5.0;
+
     } else if ((data->keys == 6) && (btn_flag)) { // L1 + START
       if (waiting_for_user) {
         user_flag = true;
@@ -581,6 +612,41 @@ static constexpr double max_j = 2.5;
         }
         RCLCPP_INFO(this->get_logger(), "Current_position set");
         gesture_type = Gesture_Type::Point;
+      }
+      if (!busy_flag) {
+        busy_flag = true;
+      }
+    }
+  }
+
+  void WingButton(int point_gesture_id, std::array<float, 17> point_gesture, std::array<float, 3> speed = {0.5, 1.0, 2.5}) {
+    if ((last_point_gesture == point_gesture_id) || ((gesture_type != Gesture_Type::Nothing) && (gesture_type != Gesture_Type::Wings))) {
+      e_stop = true;
+      RCLCPP_INFO(this->get_logger(), "EMERGENCY STOP!!!");
+      return;
+    } else if (!e_stop) {  // TODO: make this check fsm id for flag
+      std::lock_guard<std::mutex> lock(target_mutex_);
+      for (int i = 0; i < DOF; i++) {
+        input_.max_velocity[i]         = speed[0];
+        input_.max_acceleration[i]     = speed[1];
+        input_.max_jerk[i]             = speed[2];
+      }
+      last_point_gesture = point_gesture_id;
+      record_time = true;
+
+      for (int i = 0; i < 17; i++) {
+        input_.target_position[i] = point_gesture[i];
+        input_.target_velocity[i]     = 0.0;
+        input_.target_acceleration[i] = 0.0;
+        RCLCPP_INFO(this->get_logger(), "Setting %i to target %f", i, point_gesture[i]);
+      }
+
+      if (gesture_type != Gesture_Type::Wings) {
+        for (int i = 0; i < 17; i++) {
+          input_.current_position[i] = curent_arm_pos_[i];
+        }
+        RCLCPP_INFO(this->get_logger(), "Current_position set");
+        gesture_type = Gesture_Type::Wings;
       }
       if (!busy_flag) {
         busy_flag = true;

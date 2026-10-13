@@ -75,6 +75,9 @@ target_link_libraries(cam_filter ${PCL_LIBRARIES})
 add_executable(cam_frame_node src/cam_frame_node.cpp)
 ament_target_dependencies(cam_frame_node ${DEPENDENCY_LIST})
 
+add_executable(csv_250hz src/csv_250hz.cpp)
+ament_target_dependencies(csv_250hz ${DEPENDENCY_LIST})
+
 add_executable(g1_ankle_swing_example src/g1_ankle_swing_example.cpp src/common/motor_crc_hg.cpp)
 ament_target_dependencies(g1_ankle_swing_example ${DEPENDENCY_LIST})
 
@@ -133,6 +136,7 @@ install(TARGETS bag_test)
 install(TARGETS bag_to_txt)
 install(TARGETS cam_filter)
 install(TARGETS cam_frame_node)
+install(TARGETS csv_250hz)
 install(TARGETS csv_gesture_test)
 install(TARGETS g1_ankle_swing_example)
 install(TARGETS g1_arms_test)
