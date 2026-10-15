@@ -17,6 +17,8 @@
 
 using namespace std::chrono_literals;
 
+// thumb 1 - 0.7; thumb 2 - 0.35; For pom-pom gesture
+
 class HandsController : public rclcpp::Node {
  public:
   HandsController() : Node("hands_controller_node") {

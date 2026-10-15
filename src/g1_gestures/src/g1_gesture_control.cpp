@@ -488,15 +488,15 @@ static constexpr double max_j = 2.5;
       //   input_.max_acceleration[i]     = 4.0;
       //   input_.max_jerk[i]             = 8.0;
       // }
-      CsvButton("gestures/ymca.csv");
+      CsvButton("gestures/pom_poms.csv");
       btn_flag = false;
       
     } else if ((data->keys == 514) && (btn_flag)) { // L1 + B
-      CsvButton("gestures/raise.csv");
+      // CsvButton("gestures/raise.csv");
       btn_flag = false;
 
     } else if ((data->keys == 1026) && (btn_flag)) { // L1 + X
-      CsvButton("gestures/rodeo.csv");
+      // CsvButton("gestures/rodeo.csv");
       btn_flag = false;
 
     } else if ((data->keys == 2050) && (btn_flag)) { // L1 + Y

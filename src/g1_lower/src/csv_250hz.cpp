@@ -34,7 +34,8 @@ class RobotToCSV : public rclcpp::Node {
 
         int recording_flag = 99;
         int counter = 0;
-        std::chrono::milliseconds wait_rec_time = 30000ms;
+        std::chrono::milliseconds wait_rec_time = 20000ms;
+        std::chrono::milliseconds wait_rec_time2 = 10000ms;
 
         bool state_received = false;
         bool initial_continuous_flag = true;
@@ -62,7 +63,7 @@ class RobotToCSV : public rclcpp::Node {
                 std::cout << std::endl;
                 try {
                     tmp_int = std::stoi(str);
-                    if ((tmp_int != 0) && (tmp_int != 1) && (tmp_int != 4) && (tmp_int != 5)) {
+                    if ((tmp_int != 0) && (tmp_int != 1) && (tmp_int != 4) && (tmp_int != 5) && (tmp_int != 6)) {
                         std::cout << "Incorrect value. Try again: " << std::endl;
 
                     } else if (tmp_int == 1) {
@@ -74,10 +75,20 @@ class RobotToCSV : public rclcpp::Node {
                         std::cout << counter << " points recorded" << std::endl;
 
                     } else if (tmp_int == 5) {
-                        std::cout << "30s timer started... " << std::endl;
+                        std::cout << "20s timer started... " << std::endl;
                         std::this_thread::sleep_for(wait_rec_time);
                         recording_flag = 0;
                         counter ++;
+                        std::cout << counter << " points recorded" << std::endl;
+
+                    } else if (tmp_int == 6) {
+                        std::cout << "20s timer started... " << std::endl;
+                        std::this_thread::sleep_for(wait_rec_time);
+                        std::cout << "Recording started... " << std::endl;
+                        initial_continuous_flag = true;
+                        recording_flag = 1;
+                        std::this_thread::sleep_for(wait_rec_time2);
+                        recording_flag = 99;
                         std::cout << counter << " points recorded" << std::endl;
 
                     } else {
