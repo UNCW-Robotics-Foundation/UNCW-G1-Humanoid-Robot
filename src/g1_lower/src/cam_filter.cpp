@@ -13,6 +13,8 @@
 #include "pcl/filters/statistical_outlier_removal.h"
 #include <pcl_ros/transforms.hpp>
 #include <pcl/filters/voxel_grid.h>
+#include <pcl/filters/fast_bilateral.h>
+#include <pcl/surface/mls.h>
 
 class CamFilterNode : public rclcpp::Node {
  public:
@@ -47,7 +49,7 @@ class CamFilterNode : public rclcpp::Node {
     desc_dev.floating_point_range.push_back(float_range_dev);
     desc_mean.integer_range.push_back(int_range_mean);
 
-    voxel_leaf_size = this->declare_parameter("voxel_leaf_size", 0.05, desc_voxel);
+    voxel_leaf_size = this->declare_parameter("voxel_leaf_size", 0.005, desc_voxel);
 
     x_box_min = this->declare_parameter("x_box_min", -1.0, desc_box);
     x_box_max = this->declare_parameter("x_box_max", 1.0, desc_box);
@@ -58,8 +60,13 @@ class CamFilterNode : public rclcpp::Node {
 
     sor_mean = this->declare_parameter("sor_mean", 50, desc_mean);
     sor_std_dev = this->declare_parameter("sor_std_dev", 0.5, desc_dev);
+
+    bi_size = this->declare_parameter("bi_size", 15, desc_mean);
+    bi_intensity = this->declare_parameter("bi_intensity", 0.05, desc_dev);
+
     use_sor = this->declare_parameter("use_sor", true);
     use_voxel = this->declare_parameter("use_voxel", true);
+    use_bilateral = this->declare_parameter("use_bilateral", true);
 
     tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
     tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
@@ -96,9 +103,12 @@ class CamFilterNode : public rclcpp::Node {
   float z_box_min;
   float z_box_max;
   float sor_std_dev;
+  float bi_intensity;
   int sor_mean;
+  int bi_size;
   bool use_sor;
   bool use_voxel;
+  bool use_bilateral;
 
   rcl_interfaces::msg::SetParametersResult on_parameters_change(const std::vector<rclcpp::Parameter> &parameters) {
     rcl_interfaces::msg::SetParametersResult result;
@@ -127,10 +137,16 @@ class CamFilterNode : public rclcpp::Node {
         sor_std_dev = param.as_double();
       } else if (name == "sor_mean") {
         sor_mean = param.as_int();
-      } else if (name == "use_sor") {
+      } else if (name == "bi_size") {
+        bi_size = param.as_int();
+      } else if (name == "bi_intensity") {
+        bi_intensity = param.as_double();
+      }else if (name == "use_sor") {
         use_sor = param.as_bool();
       } else if (name == "use_voxel") {
         use_voxel = param.as_bool();
+      } else if (name == "use_bilateral") {
+        use_bilateral = param.as_bool();
       }
     }
 
@@ -150,62 +166,48 @@ class CamFilterNode : public rclcpp::Node {
     sensor_msgs::msg::PointCloud2 transformed_cloud;
     pcl_ros::transformPointCloud("pelvis", stransform, *recent_cloud, transformed_cloud);
 
-    // Voxel Grid Filter
     pcl::PointCloud<pcl::PointXYZRGB> cloud;
     pcl::fromROSMsg(transformed_cloud, cloud);
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr(new pcl::PointCloud<pcl::PointXYZRGB>(cloud));
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_voxel_filtered(new pcl::PointCloud<pcl::PointXYZRGB>());
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_cropbox_filtered(new pcl::PointCloud<pcl::PointXYZRGB>());
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_sor_filtered(new pcl::PointCloud<pcl::PointXYZRGB>());
-
-    //this->publishPointCloud(voxel_grid_pub_, *cloud_voxel_filtered);
 
     // Cropbox filter
-    //pcl::PointCloud<pcl::PointXYZRGB> xyz_filtered_cloud;
     pcl::CropBox<pcl::PointXYZRGB> crop;
-    //crop.setInputCloud(cloud_voxel_filtered);
     crop.setInputCloud(cloud_ptr);
     Eigen::Vector4f min_point = Eigen::Vector4f(x_box_min, y_box_min, z_box_min, 0);
     Eigen::Vector4f max_point = Eigen::Vector4f(x_box_max, y_box_max, z_box_max, 0);
     crop.setMin(min_point);
     crop.setMax(max_point);
-    crop.filter(*cloud_cropbox_filtered);
+    crop.setKeepOrganized(true);
+    crop.filter(*cloud_ptr);
 
-    if ((use_sor) && (use_voxel)) {
+    if (use_bilateral) {
+      pcl::FastBilateralFilter<pcl::PointXYZRGB> b_filter;
+      b_filter.setInputCloud(cloud_ptr);
+      b_filter.setSigmaS(bi_size);
+      b_filter.setSigmaR(bi_intensity);
+      b_filter.applyFilter(*cloud_ptr);
+
+      std::vector<int> nan_indices;
+      pcl::removeNaNFromPointCloud(*cloud_ptr, *cloud_ptr, nan_indices);
+    }
+
+    if (use_voxel) {
       pcl::VoxelGrid<pcl::PointXYZRGB> voxel_filter;
-      voxel_filter.setInputCloud(cloud_cropbox_filtered);
+      voxel_filter.setInputCloud(cloud_ptr);
       voxel_filter.setLeafSize(voxel_leaf_size, voxel_leaf_size, voxel_leaf_size);
-      voxel_filter.filter(*cloud_voxel_filtered);
+      voxel_filter.filter(*cloud_ptr);
+    } 
 
+    if (use_sor) {
       pcl::StatisticalOutlierRemoval<pcl::PointXYZRGB> sor;
-      sor.setInputCloud(cloud_voxel_filtered);
+      sor.setInputCloud(cloud_ptr);
       sor.setMeanK(sor_mean);
       sor.setStddevMulThresh(sor_std_dev);
-      sor.filter(*cloud_sor_filtered);
-
-      this->publishPointCloud(crop_pub_, *cloud_sor_filtered);
-    } else {
-      if (use_voxel) {
-        pcl::VoxelGrid<pcl::PointXYZRGB> voxel_filter;
-        voxel_filter.setInputCloud(cloud_cropbox_filtered);
-        voxel_filter.setLeafSize(voxel_leaf_size, voxel_leaf_size, voxel_leaf_size);
-        voxel_filter.filter(*cloud_voxel_filtered);
-
-        this->publishPointCloud(crop_pub_, *cloud_voxel_filtered);
-
-      } else if (use_sor) {
-        pcl::StatisticalOutlierRemoval<pcl::PointXYZRGB> sor;
-        sor.setInputCloud(cloud_cropbox_filtered);
-        sor.setMeanK(sor_mean);
-        sor.setStddevMulThresh(sor_std_dev);
-        sor.filter(*cloud_sor_filtered);
-
-        this->publishPointCloud(crop_pub_, *cloud_sor_filtered);
-
-      } else {
-        this->publishPointCloud(crop_pub_, *cloud_cropbox_filtered);
-      }
+      sor.filter(*cloud_ptr);
     }
+
+    this->publishPointCloud(crop_pub_, *cloud_ptr);
+
   }
 
   void publishPointCloud(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr publisher, pcl::PointCloud<pcl::PointXYZRGB> point_cloud) {
