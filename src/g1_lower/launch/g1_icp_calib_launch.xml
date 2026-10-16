@@ -1,0 +1,6 @@
+<launch>
+  <node pkg="g1_lower" exec="icp_calib_node" name="icp_calib" >
+  	<param name="is_sim" value="false" />
+  	<param name="use_xbox" value="false" />
+  </node>
+</launch>

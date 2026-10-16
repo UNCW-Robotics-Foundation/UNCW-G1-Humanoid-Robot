@@ -4,6 +4,9 @@
   <node pkg="robot_state_publisher" exec="robot_state_publisher" output="both">
     <param name="robot_description" value="$(var robot_description_content)" />    
   </node>
+  <node pkg="g1_lower" exec="cam_frame_node" name="cam_frame">
+    <param name="cam_x" value="-0.02987" />    
+  </node>
   <node pkg="g1_lower" exec="lowstate_jointstate_bridge" name="ls_bridge" />
   <node pkg="joy" exec="game_controller_node" name="controller" /> 
   <node pkg="tf2_ros" exec="static_transform_publisher" args="--x 0.125 --y 0.0 --z 0.0 --roll 0 --pitch 0 --yaw 0 --frame-id left_wrist_yaw_link --child-frame-id left_ee"/>

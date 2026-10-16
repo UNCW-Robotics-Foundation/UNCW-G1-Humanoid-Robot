@@ -117,7 +117,7 @@ static constexpr double max_j = 2.5;
       pub_ = this->create_publisher<LowCmd>("/arm_sdk", 10);
     }
 
-    status_pub_ = this->create_publisher<g1_msgs::msg::StatusRequest>("/gesture_status", 10);  // uncomment for real robot
+    status_pub_ = this->create_publisher<g1_msgs::msg::StatusRequest>("/gesture_status", 10);
 
     lowstate_sub_ = this->create_subscription<LowState>(
       "/lowstate", 10,

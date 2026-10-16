@@ -114,6 +114,10 @@ ament_target_dependencies(hands_reconfigure ${DEPENDENCY_LIST})
 add_executable(hands_test src/hands_test.cpp)
 ament_target_dependencies(hands_test ${DEPENDENCY_LIST})
 
+add_executable(icp_calib_node src/icp_calib_node.cpp)
+ament_target_dependencies(icp_calib_node ${DEPENDENCY_LIST})
+target_link_libraries(icp_calib_node ruckig::ruckig)
+
 add_executable(jointstate_lowcmd_bridge src/jointstate_lowcmd_bridge.cpp)
 ament_target_dependencies(jointstate_lowcmd_bridge ${DEPENDENCY_LIST})
 
@@ -150,6 +154,7 @@ install(TARGETS g1_ruckig_controller)
 install(TARGETS hands_controller)
 install(TARGETS hands_reconfigure)
 install(TARGETS hands_test)
+install(TARGETS icp_calib_node)
 install(TARGETS jointstate_lowcmd_bridge)
 install(TARGETS loco_client_test)
 install(TARGETS lowstate_jointstate_bridge)
@@ -171,6 +176,7 @@ install(TARGETS
 	lowstate_jointstate_bridge
 	hands_controller
 	g1_gui_joints_cmd
+	icp_calib_node
 	DESTINATION lib/${PROJECT_NAME})
 
 ament_python_install_package(${PROJECT_NAME})

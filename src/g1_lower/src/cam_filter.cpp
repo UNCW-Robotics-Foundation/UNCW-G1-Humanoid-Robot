@@ -61,8 +61,8 @@ class CamFilterNode : public rclcpp::Node {
     sor_mean = this->declare_parameter("sor_mean", 50, desc_mean);
     sor_std_dev = this->declare_parameter("sor_std_dev", 0.5, desc_dev);
 
-    bi_size = this->declare_parameter("bi_size", 15, desc_mean);
-    bi_intensity = this->declare_parameter("bi_intensity", 0.05, desc_dev);
+    bi_size = this->declare_parameter("bi_size", 4, desc_mean);
+    bi_intensity = this->declare_parameter("bi_intensity", 0.02, desc_dev);
 
     use_sor = this->declare_parameter("use_sor", true);
     use_voxel = this->declare_parameter("use_voxel", true);
@@ -154,20 +154,21 @@ class CamFilterNode : public rclcpp::Node {
   }
 
   void cloud_callback(const sensor_msgs::msg::PointCloud2::ConstSharedPtr recent_cloud) {
-    geometry_msgs::msg::TransformStamped stransform;
-    try {
-      stransform = tf_buffer_->lookupTransform("pelvis", recent_cloud->header.frame_id,
-          tf2::TimePointZero, tf2::durationFromSec(3));
-    }
-    catch(const tf2::TransformException &ex) {
-      RCLCPP_ERROR(this->get_logger(), "%s", ex.what());
-      return;
-    }
-    sensor_msgs::msg::PointCloud2 transformed_cloud;
-    pcl_ros::transformPointCloud("pelvis", stransform, *recent_cloud, transformed_cloud);
+    // geometry_msgs::msg::TransformStamped stransform;
+    // try {
+    //   stransform = tf_buffer_->lookupTransform("pelvis", recent_cloud->header.frame_id,
+    //       tf2::TimePointZero, tf2::durationFromSec(3));
+    // }
+    // catch(const tf2::TransformException &ex) {
+    //   RCLCPP_ERROR(this->get_logger(), "%s", ex.what());
+    //   return;
+    // }
+    // sensor_msgs::msg::PointCloud2 transformed_cloud;
+    // pcl_ros::transformPointCloud("pelvis", stransform, *recent_cloud, transformed_cloud);
 
     pcl::PointCloud<pcl::PointXYZRGB> cloud;
-    pcl::fromROSMsg(transformed_cloud, cloud);
+    //pcl::fromROSMsg(transformed_cloud, cloud);
+    pcl::fromROSMsg(*recent_cloud, cloud);
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr(new pcl::PointCloud<pcl::PointXYZRGB>(cloud));
 
     // Cropbox filter
@@ -214,7 +215,7 @@ class CamFilterNode : public rclcpp::Node {
     sensor_msgs::msg::PointCloud2::SharedPtr pc2_cloud(new sensor_msgs::msg::PointCloud2);
 
     pcl::toROSMsg(point_cloud, *pc2_cloud);
-    pc2_cloud->header.frame_id = "pelvis";
+    pc2_cloud->header.frame_id = "camera_depth_optical_frame";
     pc2_cloud->header.stamp    = this->get_clock()->now();
     publisher->publish(*pc2_cloud);
   }

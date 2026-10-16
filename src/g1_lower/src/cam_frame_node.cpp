@@ -2,6 +2,7 @@
 #include "tf2/LinearMath/Quaternion.h"
 #include "tf2_ros/transform_broadcaster.h"
 #include "geometry_msgs/msg/transform_stamped.hpp"
+#include "std_msgs/msg/float64_multi_array.hpp"
 #include "chrono"
 
 using namespace std::chrono_literals;
@@ -10,26 +11,26 @@ class CamFrameNode : public rclcpp::Node {
  public:
   CamFrameNode() : Node("cam_frame_node") {
     rcl_interfaces::msg::FloatingPointRange float_range_t;
-    float_range_t.from_value = -0.06;
-    float_range_t.to_value = 0.06;
-    float_range_t.step = 0.0001;
+    float_range_t.from_value = -0.04;
+    float_range_t.to_value = 0.04;
+    float_range_t.step = 0.00001;
 
     rcl_interfaces::msg::FloatingPointRange float_range_r;
-    float_range_r.from_value = -0.5;
-    float_range_r.to_value = 0.5;
-    float_range_r.step = 0.001;
+    float_range_r.from_value = -0.3;
+    float_range_r.to_value = 0.3;
+    float_range_r.step = 0.000001;
 
     rcl_interfaces::msg::ParameterDescriptor desc_t;
     rcl_interfaces::msg::ParameterDescriptor desc_r;
     desc_t.floating_point_range.push_back(float_range_t);
     desc_r.floating_point_range.push_back(float_range_r);
 
-    cam_x = this->declare_parameter("cam_x", -0.028, desc_t);
-    cam_y = this->declare_parameter("cam_y", 0.019, desc_t);
-    cam_z = this->declare_parameter("cam_z", -0.05, desc_t);
-    cam_roll = this->declare_parameter("cam_roll", -0.02, desc_r);
-    cam_pitch = this->declare_parameter("cam_pitch", -0.25, desc_r);
-    cam_yaw = this->declare_parameter("cam_yaw", -0.02, desc_r);
+    cam_x = this->declare_parameter("cam_x", -0.02983, desc_t);
+    cam_y = this->declare_parameter("cam_y", 0.01492, desc_t);
+    cam_z = this->declare_parameter("cam_z", -0.00142, desc_t);
+    cam_roll = this->declare_parameter("cam_roll", 0.014732, desc_r);
+    cam_pitch = this->declare_parameter("cam_pitch", -0.135588, desc_r);
+    cam_yaw = this->declare_parameter("cam_yaw", -0.014825, desc_r);
 
     tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
 
