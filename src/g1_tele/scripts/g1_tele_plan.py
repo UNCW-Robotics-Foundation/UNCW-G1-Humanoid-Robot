@@ -57,6 +57,9 @@ class RuckigPlanNode(Node):
         self._init_frame = True
         self._close_to_point = False
         self.print_wait_once = True
+        self.force_next = False
+
+        self.point_offset = -0.0335
 
         self.plan = []
         self.plan_msg = G1Plan()
@@ -88,19 +91,20 @@ class RuckigPlanNode(Node):
             f"at {control_freq:.1f} Hz. Waiting fr points...")
 
     def target_callback(self, msg: PointStamped):
-        self.plan.append([msg.point.x, msg.point.y, msg.point.z + .15])
+        self.plan.append([msg.point.x, msg.point.y, msg.point.z + self.point_offset])
         # self.plan.append([msg.point.x - .1, msg.point.y, msg.point.z + .15])
         tmp_point = G1Point()
         tmp_point.x = msg.point.x
         tmp_point.y = msg.point.y
-        tmp_point.z = msg.point.z + .15
+        tmp_point.z = msg.point.z + self.point_offset
         self.plan_msg.plan.append(tmp_point)
         # tmp_point2 = G1Point()
         # tmp_point2.x = msg.point.x - .1
         # tmp_point2.y = msg.point.y
         # tmp_point2.z = msg.point.z + .15
         # self.plan_msg.plan.append(tmp_point2)
-        self.get_logger().info(f'New plan point: x={msg.point.x:.4f}, y={msg.point.y:.4f}, z={msg.point.z+.15:.4f}')
+        self.get_logger().info(f'New plan point: x={msg.point.x:.4f}, y={msg.point.y:.4f}, z={msg.point.z+self.point_offset:.4f}')
+        self.point_offset = 0.0485
 
     def joy_callback(self, msg: Joy):
         if (msg.buttons[6] == 1) and (not self._has_plan):  # Start (3 lines)
@@ -110,18 +114,21 @@ class RuckigPlanNode(Node):
             self._has_plan = True
             self.get_logger().info(f"Plan Started! ")
         if (msg.buttons[4] == 1):                           # Select (2 windows)
-            self.plan_pub.publish(self.plan_msg)
+            # self.plan_pub.publish(self.plan_msg)
+            self.force_next = True;
 
     def update_loop(self):
         try:
             t_ee = self.tf_buffer.lookup_transform(
                 'pelvis',
-                'left_ee',
+                #'left_ee',
+                'right_ee',
                 rclpy.time.Time())
 
             t_w = self.tf_buffer.lookup_transform(
                 'pelvis',
-                'left_wrist_yaw_link',
+                #'left_wrist_yaw_link',
+                'right_wrist_yaw_link',
                 rclpy.time.Time())
 
             if self._init_frame:
@@ -168,13 +175,14 @@ class RuckigPlanNode(Node):
 
         # Logic for handling plan with Ruckig and logging real to target error. After the plan finishes,
         # the plan can be restarted with the correct controller input.
-        if result == Result.Finished and self.current_point >= len(self.plan) - 1 and self._close_to_point:
+        if result == Result.Finished and self.current_point >= len(self.plan) - 1 and (self._close_to_point or self.force_next):
             self._has_plan = False
             self.get_logger().info(f'Point {self.current_point} completed.')
             self.log_target_errors(t_ee, t_w)
             self.get_logger().info('Plan finished.')
             self.current_point = 0
-        elif result == Result.Finished and self.current_point < len(self.plan) - 1 and self._close_to_point:
+            self.force_next = False
+        elif result == Result.Finished and self.current_point < len(self.plan) - 1 and (self._close_to_point or self.force_next):
             self.get_logger().info(f'Point {self.current_point} completed.')
             self.log_target_errors(t_ee, t_w)
             self.current_point += 1
@@ -182,6 +190,7 @@ class RuckigPlanNode(Node):
             self.inp.target_velocity = [0.0, 0.0, 0.0]
             self.inp.target_acceleration = [0.0, 0.0, 0.0]
             self.print_wait_once = True
+            self.force_next = False
         elif result == Result.Finished and not self._close_to_point:
             # Node would skip points since the main node is de-coupled. This ensures this node will
             # not move onto the next one until the robot gets close enough.

@@ -389,10 +389,6 @@ static constexpr double max_j = 1.25;    //        1.0          2.0
     }
   }
 
-  void calc_state() {
-    
-  }
-
   void PublishCommand() {
     if (!first_ik_flag){ 
       get_crc(final_cmd);

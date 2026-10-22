@@ -53,20 +53,22 @@ class RuckigPlanNode(Node):
         self.inp.max_acceleration = list(self.get_parameter('max_acceleration').value)
         self.inp.max_jerk = list(self.get_parameter('max_jerk').value)
 
-        self._got_point = False
+        self._has_plan = False
         self._init_frame = True
         self._close_to_point = False
         self.print_wait_once = True
-        self.return_signal = False
-        self.grasp_flag = False
-        self.record_initial_pos = True
+        self.force_next = False
 
-        self.demo_once_flag = True
+        self.point_offset = -0.0335
 
         self.plan = []
+        self.plan_msg = G1Plan()
         self.current_point = 0
-        self.last_button = 99
-        self.initial_pos = []
+        self.grasp_cmd = Point()
+        self.grasp_res = Point()
+        self.wait_for_close = False
+        self.wait_for_open = False
+        self.plan_state = 0
 
         # ---- ROS interfaces ----
         self.point_sub = self.create_subscription(
@@ -75,8 +77,8 @@ class RuckigPlanNode(Node):
         self.joy_sub = self.create_subscription(
             Joy, 'joy', self.joy_callback, 10)
 
-        self.hand_sub = self.create_subscription(
-            Point, 'demo/hand', self.hand_callback, 10)
+        self.grasp_sub = self.create_subscription(
+            Point, 'demo/hand', self.grasp_callback, 10)
 
         self.point_pub = self.create_publisher(
             JointTrajectoryPoint, 'joint/trajectory_point', 10)
@@ -86,8 +88,10 @@ class RuckigPlanNode(Node):
 
         self.plan_pub = self.create_publisher(
             G1Plan, 'joint/plan', 10)
-        self.hand_pub = self.create_publisher(
-            Point, 'demo/point', 10)
+
+        self.grasp_pub = self.create_publisher(
+            Point, '/demo/plan', 10)
+
 
         self.timer = self.create_timer(self.dt, self.update_loop)
 
@@ -99,49 +103,57 @@ class RuckigPlanNode(Node):
             f"at {control_freq:.1f} Hz. Waiting fr points...")
 
     def target_callback(self, msg: PointStamped):
-        z_offset = 0.0
-        self.plan.append([msg.point.x, msg.point.y, msg.point.z + z_offset])
-        # self.plan.append([msg.point.x - .1, msg.point.y, msg.point.z + .15])
+        if self.plan_state == 0:
+            self.plan_helper(msg, 0.08)
+            self.plan_helper(msg, 0.042)
+        elif self.plan_state == 1:
+            self.plan_helper(msg, 0.14)
+            self.plan_helper(msg, 0.12)
+        else: 
+            self.plan_helper(msg, 0.14)
+        self.plan_state += 1
+        #self.point_offset = 0.0485
 
-        self.inp.target_position = [msg.point.x, msg.point.y, msg.point.z + z_offset]
-        self.inp.target_velocity = [0.0, 0.0, 0.0]
-        self.inp.target_acceleration = [0.0, 0.0, 0.0]
-        self._got_point = True
-        self.get_logger().info(f'New point: x={msg.point.x:.4f}, y={msg.point.y:.4f}, z={msg.point.z + z_offset:.4f}')
+    def plan_helper(self, point: PointStamped, z_offset):
+        self.plan.append([point.point.x, point.point.y, point.point.z + z_offset])
+        tmp_point = G1Point()
+        tmp_point.x = point.point.x
+        tmp_point.y = point.point.y
+        tmp_point.z = point.point.z + self.point_offset
+        self.plan_msg.plan.append(tmp_point)
+        self.get_logger().info(f'New plan point: x={point.point.x:.4f}, y={point.point.y:.4f}, z={point.point.z + z_offset:.4f}')
 
     def joy_callback(self, msg: Joy):
-        if (self.last_button != 99):
-            if (msg.buttons[self.last_button] == 1):
-                return
-            else:
-                self.last_button = 99
-        if (msg.buttons[6] == 1):  # Start (3 lines)
-            self.return_signal = True
-            self.last_button = 6
-        if (msg.buttons[4] == 1):  
-            self.last_button = 4                         # Select (2 windows)
-            return
+        if (msg.buttons[6] == 1) and (not self._has_plan):  # Start (3 lines)
+            self.inp.target_position = [self.plan[self.current_point][0], self.plan[self.current_point][1], self.plan[self.current_point][2]]
+            self.inp.target_velocity = [0.0, 0.0, 0.0]
+            self.inp.target_acceleration = [0.0, 0.0, 0.0]
+            self._has_plan = True
+            self.get_logger().info(f"Plan Started! ")
+        if (msg.buttons[4] == 1):                           # Select (2 windows)
+            # self.plan_pub.publish(self.plan_msg)
+            self.force_next = True;
 
-    def hand_callback(self, msg: Point):
-        if msg.x == 1.0:
-            self.return_signal = True
+    def grasp_callback(self, msg: Point):
+        self.grasp_res = msg
 
     def update_loop(self):
         try:
             t_ee = self.tf_buffer.lookup_transform(
                 'pelvis',
-                'left_ee',
+                #'left_ee',
+                'right_ee',
                 rclpy.time.Time())
 
             t_w = self.tf_buffer.lookup_transform(
                 'pelvis',
-                'left_wrist_yaw_link',
+                #'left_wrist_yaw_link',
+                'right_wrist_yaw_link',
                 rclpy.time.Time())
 
             if self._init_frame:
                 self._init_frame = False
-                self.initial_pos = [t_ee.transform.translation.x, t_ee.transform.translation.y, t_ee.transform.translation.z]
-                self.inp.current_position = self.initial_pos
+                self.inp.current_position = [t_ee.transform.translation.x, t_ee.transform.translation.y, t_ee.transform.translation.z]
                 self.get_logger().info(f"Wrist Frame Recorded!")
 
         except TransformException as ex:
@@ -161,13 +173,26 @@ class RuckigPlanNode(Node):
         pc2_msg = point_cloud2.create_cloud(tmp_header, fields, self.plan)
         self.dbg_plan_pub.publish(pc2_msg)
 
-        if self.return_signal:
-            self.inp.target_position = self.initial_pos
-            self._got_point = True
-
         # Rest of controller waits until a plan is confirmed
-        if not self._got_point:
+        if not self._has_plan:
             return
+
+        if self.wait_for_close or self.wait_for_open:
+            if self.grasp_res.x == 1.0:
+                self.wait_for_close = False
+                self.wait_for_open = False
+                self.grasp_res.x = 0.0
+
+                self.get_logger().info(f'Point {self.current_point} completed.')
+                self.log_target_errors(t_ee, t_w)
+                self.current_point += 1
+                self.inp.target_position = [self.plan[self.current_point][0], self.plan[self.current_point][1], self.plan[self.current_point][2]]
+                self.inp.target_velocity = [0.0, 0.0, 0.0]
+                self.inp.target_acceleration = [0.0, 0.0, 0.0]
+                self.print_wait_once = True
+                self.force_next = False
+            else:
+                return
 
         self.check_point(t_ee)
 
@@ -187,27 +212,41 @@ class RuckigPlanNode(Node):
 
         # Logic for handling plan with Ruckig and logging real to target error. After the plan finishes,
         # the plan can be restarted with the correct controller input.
-        if result == Result.Finished and not self._close_to_point:
+        if result == Result.Finished and self.current_point >= len(self.plan) - 1 and (self._close_to_point or self.force_next):
+            self._has_plan = False
+            self.get_logger().info(f'Point {self.current_point} completed.')
+            self.log_target_errors(t_ee, t_w)
+            self.get_logger().info('Plan finished.')
+            self.current_point = 0
+            self.force_next = False
+        elif result == Result.Finished and self.current_point < len(self.plan) - 1 and (self._close_to_point or self.force_next):
+            if (self.current_point == 1):
+                self.wait_for_close = True
+                self.grasp_cmd.x = 1.0
+                self.grasp_pub.publish(self.grasp_cmd)
+                self.get_logger().info(f'Sent grasp signal. Waiting for response...')
+                return
+            elif (self.current_point == 3):
+                self.wait_for_open = True
+                self.grasp_cmd.x = 2.0
+                self.grasp_pub.publish(self.grasp_cmd)
+                self.get_logger().info(f'Sent open signal. Waiting for response...')
+                return
+
+            self.get_logger().info(f'Point {self.current_point} completed.')
+            self.log_target_errors(t_ee, t_w)
+            self.current_point += 1
+            self.inp.target_position = [self.plan[self.current_point][0], self.plan[self.current_point][1], self.plan[self.current_point][2]]
+            self.inp.target_velocity = [0.0, 0.0, 0.0]
+            self.inp.target_acceleration = [0.0, 0.0, 0.0]
+            self.print_wait_once = True
+            self.force_next = False
+        elif result == Result.Finished and not self._close_to_point:
             # Node would skip points since the main node is de-coupled. This ensures this node will
             # not move onto the next one until the robot gets close enough.
             if self.print_wait_once:
                 self.get_logger().info(f'Waiting on main ruckig...')
                 self.print_wait_once = False
-        elif result == Result.Finished:
-            self._got_point = False
-            self.get_logger().info(f'Point completed.')
-            # self.log_target_errors(t_ee, t_w)
-            # self.get_logger().info('Plan finished.')
-            self.grasp_flag = True
-            self.current_point = 0
-
-            if self.demo_once_flag:
-                self.demo_once_flag = False
-                # self.return_signal = True
-            #     tmp_point = Point()
-            #     tmp_point.x = 1.0
-            #     self.hand_pub.publish(tmp_point)
-
         elif result == Result.Error:
             self.get_logger().error(
                 'Ruckig returned an error; check limits and target values.')
@@ -245,7 +284,7 @@ class RuckigPlanNode(Node):
         tmp_dy = abs(self.plan[self.current_point][1] - t_ee.transform.translation.y)
         tmp_dz = abs(self.plan[self.current_point][2] - t_ee.transform.translation.z)
 
-        if (tmp_dx < 0.008) and (tmp_dy < 0.008) and (tmp_dz < 0.008):
+        if (tmp_dx < 0.004) and (tmp_dy < 0.004) and (tmp_dz < 0.005):
             self._close_to_point = True
         else:
             self._close_to_point = False

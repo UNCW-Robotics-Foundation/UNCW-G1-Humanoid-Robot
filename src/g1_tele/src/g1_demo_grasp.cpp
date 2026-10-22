@@ -29,18 +29,18 @@ class HandsController : public rclcpp::Node {
       [this](const unitree_go::msg::WirelessController::SharedPtr data) {
         WirelessCallback(data);
       }); 
-    l_touch_sub_ = this->create_subscription<unitree_go::msg::MotorStates>(
-      "/brainco/left/touch", 10,
+    r_touch_sub_ = this->create_subscription<unitree_go::msg::MotorStates>(
+      "/brainco/right/touch", 10,
       [this](const unitree_go::msg::MotorStates::SharedPtr data) {
         TouchCallback(data);
       }); 
-    l_state_sub_ = this->create_subscription<unitree_go::msg::MotorStates>(
-      "/brainco/left/state", 10,
+    r_state_sub_ = this->create_subscription<unitree_go::msg::MotorStates>(
+      "/brainco/right/state", 10,
       [this](const unitree_go::msg::MotorStates::SharedPtr data) {
         StateCallback(data);
       }); 
     point_sub_ = this->create_subscription<geometry_msgs::msg::Point>(
-      "/demo/point", 10,
+      "/demo/plan", 10,
       [this](const geometry_msgs::msg::Point::SharedPtr data) {
         PointCallback(data);
       }); 
@@ -56,8 +56,8 @@ class HandsController : public rclcpp::Node {
   rclcpp::Publisher<unitree_go::msg::MotorCmds>::SharedPtr r_pub_;
   rclcpp::Publisher<geometry_msgs::msg::Point>::SharedPtr point_pub_;
   rclcpp::Subscription<unitree_go::msg::WirelessController>::SharedPtr suber_; 
-  rclcpp::Subscription<unitree_go::msg::MotorStates>::SharedPtr l_touch_sub_; 
-  rclcpp::Subscription<unitree_go::msg::MotorStates>::SharedPtr l_state_sub_; 
+  rclcpp::Subscription<unitree_go::msg::MotorStates>::SharedPtr r_touch_sub_; 
+  rclcpp::Subscription<unitree_go::msg::MotorStates>::SharedPtr r_state_sub_; 
   rclcpp::Subscription<geometry_msgs::msg::Point>::SharedPtr point_sub_;
   std::thread thread_;
   rclcpp::TimerBase::SharedPtr timer_;
@@ -74,6 +74,7 @@ class HandsController : public rclcpp::Node {
 
   std::array<float, 6> saved_state {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
   const std::array<float, 6> pre_grasp {0, 1, 0, 0, 0, 0}; 
+  const std::array<float, 6> grasp {0.4, 1.0, 0.5, 0.5, 0.5, 0.6}; 
 
   enum class HandFlag : int {
     LEFT = 0,
@@ -84,7 +85,7 @@ class HandsController : public rclcpp::Node {
   bool btn_flag = false;
   bool cont_flag = false;
   bool cont_num = 0;
-  bool do_once = true;
+  bool grasp_once = false;
 
   geometry_msgs::msg::Point hand_signal;
 
@@ -105,26 +106,38 @@ class HandsController : public rclcpp::Node {
   }
 
   void TouchCallback(const unitree_go::msg::MotorStates::SharedPtr& data) {
-    if (data->states[1].q > 60) {
-      MoveHands(saved_state, static_cast<int>(HandFlag::LEFT));
+    if ((data->states[0].q > 60) && (grasp_once)) {
+      RCLCPP_INFO(this->get_logger(), "Index finger force flag triggered");
+      MoveHands(saved_state, static_cast<int>(HandFlag::RIGHT));
       hand_signal.x = 1.0;
       point_pub_->publish(hand_signal);
+      grasp_once = false;
     }
   }
 
   void PointCallback(const geometry_msgs::msg::Point::SharedPtr& data) {
     if (data->x == 1.0) {
-      StartGraspingLeft();
+      MoveHands(pre_grasp, static_cast<int>(HandFlag::RIGHT));
+      std::this_thread::sleep_for(300ms);
+      StartGrasping(false);
+    } else if (data->x == 2.0) {
+      MoveHands(pre_grasp, static_cast<int>(HandFlag::RIGHT));
+      std::this_thread::sleep_for(300ms);
+      MoveHands(open_hand, static_cast<int>(HandFlag::RIGHT));
+      std::this_thread::sleep_for(300ms);
+      hand_signal.x = 1.0;
+      point_pub_->publish(hand_signal);
     }
   }
 
-  void StartGraspingLeft() {
+  void StartGrasping(bool left) {
+    grasp_once = true;
     std::vector<unitree_go::msg::MotorCmd> tmpCommands;
     unitree_go::msg::MotorCmds handCmds;
 
     for (int i = 0; i < 6; i++) {
         unitree_go::msg::MotorCmd handCmd;
-        handCmd.q = fist[i];
+        handCmd.q = grasp[i];
         handCmd.dq = 0.2F;
         handCmd.tau = 0.0F;
         handCmd.kp = 0.0F;
@@ -133,7 +146,11 @@ class HandsController : public rclcpp::Node {
         tmpCommands.push_back(handCmd);
     }
     handCmds.cmds = tmpCommands;
-    l_pub_->publish(handCmds);
+    if (left) {
+      l_pub_->publish(handCmds);
+    } else {
+      r_pub_->publish(handCmds);
+    }
   }
 
   void MoveHands(std::array<float, 6> positions, int hand_flag) {
@@ -340,9 +357,9 @@ class HandsController : public rclcpp::Node {
       MoveHands(peace, static_cast<int>(HandFlag::BOTH));
       btn_flag = false;
     }else if ((data->keys == 8) && (btn_flag)) { // SELECT
-      MoveHands(pre_grasp, static_cast<int>(HandFlag::LEFT));
+      MoveHands(pre_grasp, static_cast<int>(HandFlag::RIGHT));
       std::this_thread::sleep_for(500ms);
-      StartGraspingLeft();
+      StartGrasping(false);
       btn_flag = false;
     }else if ((data->keys == 0) && !(btn_flag)) {
       btn_flag = true;

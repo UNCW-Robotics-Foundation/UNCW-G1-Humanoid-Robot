@@ -25,12 +25,12 @@ class CamFrameNode : public rclcpp::Node {
     desc_t.floating_point_range.push_back(float_range_t);
     desc_r.floating_point_range.push_back(float_range_r);
 
-    cam_x = this->declare_parameter("cam_x", -0.02983, desc_t);
-    cam_y = this->declare_parameter("cam_y", 0.01492, desc_t);
-    cam_z = this->declare_parameter("cam_z", -0.00142, desc_t);
-    cam_roll = this->declare_parameter("cam_roll", 0.014732, desc_r);
-    cam_pitch = this->declare_parameter("cam_pitch", -0.135588, desc_r);
-    cam_yaw = this->declare_parameter("cam_yaw", -0.014825, desc_r);
+    cam_x = this->declare_parameter("cam_x", -0.03254, desc_t);
+    cam_y = this->declare_parameter("cam_y", 0.00949, desc_t);
+    cam_z = this->declare_parameter("cam_z", 0.00065, desc_t);
+    cam_roll = this->declare_parameter("cam_roll", 0.004529, desc_r);
+    cam_pitch = this->declare_parameter("cam_pitch", -0.119438, desc_r);
+    cam_yaw = this->declare_parameter("cam_yaw", -0.003737, desc_r);
 
     tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
 
