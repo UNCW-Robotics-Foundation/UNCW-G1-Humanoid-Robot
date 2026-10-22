@@ -105,12 +105,20 @@ class MinimalSubscriber(Node):
 
     def traj_callback(self, msg):
             self.current_traj = msg
+            # Left arm
             # self.left_ee_matrix[0, 3] = self.current_traj.positions[0] + self.initial_x
             # self.left_ee_matrix[1, 3] = self.current_traj.positions[1] + self.initial_y
             # self.left_ee_matrix[2, 3] = self.current_traj.positions[2] + self.initial_z
-            self.right_ee_matrix[0, 3] = self.current_traj.positions[0] + self.initial_x
-            self.right_ee_matrix[1, 3] = self.current_traj.positions[1] + self.initial_y
-            self.right_ee_matrix[2, 3] = self.current_traj.positions[2] + self.initial_z
+
+            # Right arm command/terminal; with tele_middle
+            # self.right_ee_matrix[0, 3] = self.current_traj.positions[0] + self.initial_x
+            # self.right_ee_matrix[1, 3] = self.current_traj.positions[1] + self.initial_y
+            # self.right_ee_matrix[2, 3] = self.current_traj.positions[2] + self.initial_z
+
+            # Right arm plan; with tele_plan
+            self.right_ee_matrix[0, 3] = self.current_traj.positions[0]
+            self.right_ee_matrix[1, 3] = self.current_traj.positions[1]
+            self.right_ee_matrix[2, 3] = self.current_traj.positions[2]
 
     def joy_callback(self, msg):
         if (self.btn_flag):

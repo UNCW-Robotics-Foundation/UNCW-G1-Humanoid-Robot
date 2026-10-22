@@ -18,11 +18,17 @@ class TauGenerator(Node):
     def __init__(self):
         super().__init__('tau_generator')
         
+        # self.subscription = self.create_subscription(
+        #     ArmStates,
+        #     'joints/ruckig',
+        #     self.listener_callback,
+        #     10)
+
         self.subscription = self.create_subscription(
-            ArmStates,
-            'joints/ruckig',
-            self.listener_callback,
-            10)
+                    ArmStates,
+                    'arm_joints',
+                    self.listener_callback,
+                    10)
 
         self.tau_pub = self.create_publisher(
             ArmStates,
