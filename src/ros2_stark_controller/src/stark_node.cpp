@@ -219,8 +219,8 @@ private:
         uint16_t pos[6];
         uint16_t speed[6];
         for (int i = 0; i < 6; ++i) {
-            pos[i] = static_cast<uint16_t>(std::clamp(msg->position[i], 0.0, 1.0) * 1000);
-            speed[i] = static_cast<uint16_t>(std::clamp(msg->velocity[i], 0.0, 1.0) * 1000);
+            pos[i] = static_cast<uint16_t>(std::max(0.0, std::min(msg->position[i], 1.0)) * 1000);
+            speed[i] = static_cast<uint16_t>(std::max(0.0, std::min(msg->velocity[i], 1.0)) * 1000);
         }
         if (log_screen_) {
             RCLCPP_INFO(get_logger(), "Left positions: %d %d %d %d %d %d",
@@ -238,8 +238,8 @@ private:
         uint16_t pos[6];
         uint16_t speed[6];
         for (int i = 0; i < 6; ++i) {
-            pos[i] = static_cast<uint16_t>(std::clamp(msg->position[i], 0.0, 1.0) * 1000);
-            speed[i] = static_cast<uint16_t>(std::clamp(msg->velocity[i], 0.0, 1.0) * 1000);
+            pos[i] = static_cast<uint16_t>(std::max(0.0, std::min(msg->position[i], 1.0)) * 1000);
+            speed[i] = static_cast<uint16_t>(std::max(0.0, std::min(msg->velocity[i], 1.0)) * 1000);
         }
         if (log_screen_) {
             RCLCPP_INFO(get_logger(), "Right positions: %d %d %d %d %d %d",
