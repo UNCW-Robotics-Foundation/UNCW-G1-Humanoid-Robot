@@ -104,13 +104,14 @@ class RuckigPlanNode(Node):
 
     def target_callback(self, msg: PointStamped):
         if self.plan_state == 0:
-            self.plan_helper(msg, 0.08)
-            self.plan_helper(msg, 0.042)
+            self.plan_helper(msg, 0.09)
+            self.plan_helper(msg, 0.046)
         elif self.plan_state == 1:
-            self.plan_helper(msg, 0.14)
-            self.plan_helper(msg, 0.12)
+            self.plan_helper(msg, 0.2)
+            self.plan_helper(msg, 0.15)
+            self.plan_helper(msg, 0.21)
         else: 
-            self.plan_helper(msg, 0.14)
+            self.plan_helper(msg, 0.17)
         self.plan_state += 1
         #self.point_offset = 0.0485
 

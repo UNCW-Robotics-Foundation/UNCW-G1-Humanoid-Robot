@@ -110,6 +110,7 @@ install(PROGRAMS
 	scripts/g1_tele_middle.py
 	scripts/g1_tele_pen.py
 	scripts/g1_tele_plan.py
+	scripts/ball_center_detect.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
