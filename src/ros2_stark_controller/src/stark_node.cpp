@@ -65,19 +65,19 @@ public:
             throw std::runtime_error("Right hand init failed");
 
         // ── Publishers ────────────────────────────────────────────────────────
-        motor_pub_l_ = create_publisher<ros2_stark_interfaces::msg::MotorStatus>("motor_status",   10);
-        motor_pub_r_ = create_publisher<ros2_stark_interfaces::msg::MotorStatus>("motor_status_r", 10);
-        touch_pub_l_ = create_publisher<ros2_stark_interfaces::msg::TouchStatus>("touch_status",   10);
-        touch_pub_r_ = create_publisher<ros2_stark_interfaces::msg::TouchStatus>("touch_status_r", 10);
-        turbo_pub_   = create_publisher<std_msgs::msg::Bool>("turbo_mode", 10);
-        voltage_pub_ = create_publisher<std_msgs::msg::UInt16>("voltage",   10);
+        motor_pub_l_ = create_publisher<ros2_stark_interfaces::msg::MotorStatus>("brainco/motor_status",   10);
+        motor_pub_r_ = create_publisher<ros2_stark_interfaces::msg::MotorStatus>("brainco/motor_status_r", 10);
+        touch_pub_l_ = create_publisher<ros2_stark_interfaces::msg::TouchStatus>("brainco/touch_status",   10);
+        touch_pub_r_ = create_publisher<ros2_stark_interfaces::msg::TouchStatus>("brainco/touch_status_r", 10);
+        turbo_pub_   = create_publisher<std_msgs::msg::Bool>("brainco/turbo_mode", 10);
+        voltage_pub_ = create_publisher<std_msgs::msg::UInt16>("brainco/voltage",   10);
 
         // ── Subscriptions ─────────────────────────────────────────────────────
         joint_sub_l_ = create_subscription<sensor_msgs::msg::JointState>(
-            "joint_commands_left", 10,
+            "brainco/cmd_left", 10,
             std::bind(&StarkNode::joint_cmd_left, this, std::placeholders::_1));
         joint_sub_r_ = create_subscription<sensor_msgs::msg::JointState>(
-            "joint_commands_right", 10,
+            "brainco/cmd_right", 10,
             std::bind(&StarkNode::joint_cmd_right, this, std::placeholders::_1));
 
         // ── Timers ────────────────────────────────────────────────────────────
