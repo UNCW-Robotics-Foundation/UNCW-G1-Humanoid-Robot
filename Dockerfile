@@ -17,9 +17,7 @@ RUN apt-get update && apt-get install -y \
         ros-${ROS_DISTRO}-rmw-cyclonedds-cpp \
         ros-${ROS_DISTRO}-rosidl-generator-dds-idl \
         ros-${ROS_DISTRO}-teleop-twist-keyboard \
-        ros-${ROS_DISTRO}-ruckig \
-        ros-${ROS_DISTRO}-demo-nodes-cpp \
-        ros-${ROS_DISTRO}-demo-nodes-py && \
+        ros-${ROS_DISTRO}-ruckig && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /home
@@ -29,7 +27,7 @@ RUN git clone https://github.com/Art3mi0/unitree_ros2.git
 RUN cd unitree_ros2/cyclonedds_ws && source /opt/ros/$ROS_DISTRO/setup.bash && colcon build
 
 RUN git clone https://github.com/UNCW-Robotics-Foundation/UNCW-G1-Humanoid-Robot
-RUN source unitree_ros2/setup.sh && cd UNCW-G1-Humanoid-Robot && colcon build --packages-select g1_msgs g1_gestures
+RUN source unitree_ros2/setup.sh && cd UNCW-G1-Humanoid-Robot && colcon build --packages-select g1_msgs g1_gestures ros2_stark_controller ros2_stark_interfaces
 
 COPY entrypoint.sh /entrypoint.sh
 

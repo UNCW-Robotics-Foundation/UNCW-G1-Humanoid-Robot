@@ -49,7 +49,7 @@ public:
         baudrate_    = declare_parameter<int>("baudrate",            115200);
         slave_id_l_  = static_cast<uint8_t>(declare_parameter<int>("slave_id_l", 1));
         slave_id_r_  = static_cast<uint8_t>(declare_parameter<int>("slave_id_r", 1));
-        log_screen_  = declare_parameter<bool>("log_screen",        true);
+        log_screen_  = declare_parameter<bool>("log_screen",        false);
 
         RCLCPP_INFO(get_logger(), "Left  hand: %s  baud=%d  id=%d",
                     port_l_.c_str(), baudrate_, slave_id_l_);
@@ -218,8 +218,8 @@ private:
         uint16_t pos[6];
         uint16_t speed[6];
         for (int i = 0; i < 6; ++i) {
-            pos[i] = static_cast<uint16_t>(msg->position[i] * 100);
-            speed[i] = static_cast<uint16_t>(msg->velocity[i] * 100);
+            pos[i] = static_cast<uint16_t>(std::clamp(msg->position[i], 0.0, 1.0) * 1000);
+            speed[i] = static_cast<uint16_t>(std::clamp(msg->velocity[i], 0.0, 1.0) * 1000);
         }
         if (log_screen_) {
             RCLCPP_INFO(get_logger(), "Left positions: %d %d %d %d %d %d",
@@ -237,8 +237,8 @@ private:
         uint16_t pos[6];
         uint16_t speed[6];
         for (int i = 0; i < 6; ++i) {
-            pos[i] = static_cast<uint16_t>(msg->position[i] * 100);
-            speed[i] = static_cast<uint16_t>(msg->velocity[i] * 100);
+            pos[i] = static_cast<uint16_t>(std::clamp(msg->position[i], 0.0, 1.0) * 1000);
+            speed[i] = static_cast<uint16_t>(std::clamp(msg->velocity[i], 0.0, 1.0) * 1000);
         }
         if (log_screen_) {
             RCLCPP_INFO(get_logger(), "Right positions: %d %d %d %d %d %d",

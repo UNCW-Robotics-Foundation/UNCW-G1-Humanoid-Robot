@@ -18,6 +18,7 @@ class RobotToCSV : public rclcpp::Node {
                 });
 
             thread_ = std::thread([this]() { UserInputLoop(); });
+            // thread_ = std::thread([this]() { ModifyFile(); });
 
             timer1_ = this->create_wall_timer(std::chrono::milliseconds(4),
                                       [this] { RosControl(); });
@@ -34,7 +35,7 @@ class RobotToCSV : public rclcpp::Node {
 
         int recording_flag = 99;
         int counter = 0;
-        std::chrono::milliseconds wait_rec_time = 20000ms;
+        std::chrono::milliseconds wait_rec_time = 30000ms;
         std::chrono::milliseconds wait_rec_time2 = 10000ms;
 
         bool state_received = false;
@@ -123,6 +124,8 @@ class RobotToCSV : public rclcpp::Node {
             std::cout << "0 = Single point" << std::endl;
             std::cout << "1 = Continuous points" << std::endl;
             std::cout << "4 = Single point with wait flag at end" << std::endl;
+            std::cout << "5 = Timer start then single point" << std::endl;
+            std::cout << "6 = Timer start then continuous for 10s" << std::endl;
         }
 
         void RosControl() {
@@ -178,6 +181,54 @@ class RobotToCSV : public rclcpp::Node {
             }
             CSVFile.close();
             RCLCPP_INFO(this->get_logger(), "Writing complete.");
+        }
+
+        void ModifyFile() {
+            std::array<float, 29> poms = {-0.151660,-0.016294,0.028471,0.295607,-0.142253,0.003667,-0.117997,0.002625,0.012213,0.318608,-0.215959,-0.008948,0.000830,-0.000455,-0.000184,0.256199,0.279068,-0.080510,0.828170,0.002936,0.008341,0.004674,0.257062,-0.288149,0.091044,0.791426,-0.006867,0.007538,0.004123};
+            int csv_size = 0;
+            std::vector<std::vector<std::string>> csv_data;
+            std::ifstream GestureFile("gestures/pom_poms.csv");
+            std::string raw_csv;
+            getline (GestureFile, raw_csv);
+            while (getline (GestureFile, raw_csv)) {
+                std::stringstream ss(raw_csv);
+                std::string cell;
+                std::vector<std::string> row;
+
+                while (std::getline(ss, cell, ',')) {
+                row.push_back(cell);
+                }
+                csv_data.push_back(row);
+            }
+
+            csv_size = csv_data.size();
+            for (int i = 0; i < csv_size; i++) {
+                for (int j = 12; j < 22; j ++) {
+                    if (j > 14) {
+                        csv_data[i][j + 7] = std::to_string(poms[j + 7]);
+                    } else {
+                        csv_data[i][j] = std::to_string(poms[j]);
+                    }
+                }
+            }
+
+            std::string tmp_line;
+            std::ofstream CSVFile("csv_modified.csv");
+            RCLCPP_INFO(this->get_logger(), "Writing to csv...");
+            CSVFile << "LEFT_HIP_PITCH,LEFT_HIP_ROLL,LEFT_HIP_YAW,LEFT_KNEE,LEFT_ANKLE_PITCH,LEFT_ANKLE_ROLL,RIGHT_HIP_PITCH,RIGHT_HIP_ROLL,RIGHT_HIP_YAW,RIGHT_KNEE,RIGHT_ANKLE_PITCH,RIGHT_ANKLE_ROLL,WAIST_YAW,WAIST_ROLL,WAIST_PITCH,LEFT_SHOULDER_PITCH,LEFT_SHOULDER_ROLL,LEFT_SHOULDER_YAW,LEFT_ELBOW,LEFT_WRIST_ROLL,LEFT_WRIST_PITCH,LEFT_WRIST_YAW,RIGHT_SHOULDER_PITCH,RIGHT_SHOULDER_ROLL,RIGHT_SHOULDER_YAW,RIGHT_ELBOW,RIGHT_WRIST_ROLL,RIGHT_WRIST_PITCH,RIGHT_WRIST_YAW,FLAG\n";
+            for (int i = 0; i < csv_size; i++) {
+                tmp_line = csv_data[i][0];
+                for (int j = 1; j < 30; j++) {
+                    tmp_line += "," + csv_data[i][j];
+                }
+                if (i < csv_size - 1) {
+                   tmp_line += "\n"; 
+                }
+                CSVFile << tmp_line;
+            }
+            CSVFile.close();
+            RCLCPP_INFO(this->get_logger(), "Writing complete.");
+            rclcpp::shutdown();
         }
 
 };

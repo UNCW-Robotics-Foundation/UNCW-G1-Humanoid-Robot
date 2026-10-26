@@ -492,11 +492,11 @@ static constexpr double max_j = 2.5;
       btn_flag = false;
       
     } else if ((data->keys == 514) && (btn_flag)) { // L1 + B
-      // CsvButton("gestures/raise.csv");
+      CsvButton("gestures/pom_right.csv");
       btn_flag = false;
 
     } else if ((data->keys == 1026) && (btn_flag)) { // L1 + X
-      // CsvButton("gestures/rodeo.csv");
+      CsvButton("gestures/pom_left.csv");
       btn_flag = false;
 
     } else if ((data->keys == 2050) && (btn_flag)) { // L1 + Y
@@ -506,36 +506,47 @@ static constexpr double max_j = 2.5;
     } else if ((data->keys == 4098) && (btn_flag)) { // L1 + UP
       CsvButton("gestures/wings.csv");
       btn_flag = false;
+    
+    } else if ((data->keys == 32770) && (btn_flag)) { // L1 + LEFT
+      WingButton(0, static_gestures.wings_up_low, {0.5, 1.0, 2.5});
+      btn_flag = false;
+      pd_scale = 5.0;
+
+    } else if ((data->keys == 8194) && (btn_flag)) { // L1 + RIGHT
+      WingButton(1, static_gestures.wings_up_mid, {0.5, 1.0, 2.5});
+      btn_flag = false;
+      pd_scale = 5.0;
+    
+    } else if ((data->keys == 16386) && (btn_flag)) { // L1 + DOWN
+      WingButton(2, static_gestures.wings_up_base, {0.5, 1.0, 2.5});
+      btn_flag = false;
+      pd_scale = 5.0;
 
     } else if ((data->keys == 20) && (btn_flag)) { // R2 + START
-      PointButton(5, static_gestures.Stand_By);
+      PointButton(3, static_gestures.Stand_By);
       btn_flag = false;
 
     } else if ((data->keys == 24) && (btn_flag)) { // R2 + SELECT
-      PointButton(0, static_gestures.Pre_Point, {1.0, 2.0, 4.0});
+      PointButton(4, static_gestures.Pre_Point, {1.0, 2.0, 4.0});
       btn_flag = false;
       pd_scale = 5.0;
 
     } else if ((data->keys == 32784) && (btn_flag)) { // R2 + LEFT
-      PointButton(3, static_gestures.Point_Left_v2, {1.0, 2.0, 4.0});
+      PointButton(5, static_gestures.Point_Left_v2, {1.0, 2.0, 4.0});
       btn_flag = false;
       pd_scale = 5.0;
 
     } else if ((data->keys == 8208) && (btn_flag)) { // R2 + RIGHT
       //PointButton(2, static_gestures.Point_Right, {1.0, 2.0, 5.0});
-      PointButton(4, static_gestures.Point_Right_v2, {1.0, 2.0, 4.0});
+      PointButton(6, static_gestures.Point_Right_v2, {1.0, 2.0, 4.0});
       btn_flag = false;
       pd_scale = 5.0;
 
     } else if ((data->keys == 4112) && (btn_flag)) { // R2 + UP
-      WingButton(1, static_gestures.wings_up_mid, {0.5, 1.0, 2.5});
       btn_flag = false;
-      pd_scale = 5.0;
 
     } else if ((data->keys == 16400) && (btn_flag)) { // R2 + DOWN
-      WingButton(2, static_gestures.wings_up_base, {0.5, 1.0, 2.5});
       btn_flag = false;
-      pd_scale = 5.0;
 
     } else if ((data->keys == 6) && (btn_flag)) { // L1 + START
       if (waiting_for_user) {
