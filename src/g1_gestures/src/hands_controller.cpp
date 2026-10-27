@@ -1,19 +1,11 @@
 #include "rclcpp/rclcpp.hpp"
 #include "unitree_go/msg//wireless_controller.hpp"
+#include "sensor_msgs/msg/joint_state.hpp"
+#include "ros2_stark_interfaces/msg/touch_status.hpp"
+#include "ros2_stark_interfaces/msg/motor_status.hpp"
 
 #include "thread"
 #include "chrono"
-#include "base_client.hpp"
-#include "common/time_tools.hpp"
-#include "common/ut_errror.hpp"
-#include "nlohmann/json.hpp"
-#include "patch.hpp"
-#include "unitree_api/msg/request.hpp"
-#include "unitree_api/msg/response.hpp"
-#include "unitree_go/msg/motor_cmds.hpp"
-#include "unitree_go/msg/motor_cmd.hpp"
-#include "unitree_go/msg/motor_states.hpp"
-#include "unitree_go/msg/motor_state.hpp"
 
 using namespace std::chrono_literals;
 
@@ -22,13 +14,23 @@ using namespace std::chrono_literals;
 class HandsController : public rclcpp::Node {
  public:
   HandsController() : Node("hands_controller_node") {
-    l_pub_ = this->create_publisher<unitree_go::msg::MotorCmds>("/brainco/left/cmd", 10);
-    r_pub_ = this->create_publisher<unitree_go::msg::MotorCmds>("/brainco/right/cmd", 10);
+    l_pub_ = this->create_publisher<sensor_msgs::msg::JointState>("/brainco/cmd_left", 10);
+    r_pub_ = this->create_publisher<sensor_msgs::msg::JointState>("/brainco/cmd_right", 10);
     suber_ = this->create_subscription<unitree_go::msg::WirelessController>(
-        "/wirelesscontroller", 10,
-        [this](const unitree_go::msg::WirelessController::SharedPtr data) {
-          WirelessCallback(data);
-        }); 
+      "/wirelesscontroller", 10,
+      [this](const unitree_go::msg::WirelessController::SharedPtr data) {
+        WirelessCallback(data);
+      });
+    r_touch_sub_ = this->create_subscription<ros2_stark_interfaces::msg::TouchStatus>(
+      "/brainco/touch_status_r", 10,
+      [this](const ros2_stark_interfaces::msg::TouchStatus::SharedPtr data) {
+        TouchCallback(data);
+      });
+    r_state_sub_ = this->create_subscription<ros2_stark_interfaces::msg::MotorStatus>(
+      "/brainco/motor_status_r", 10,
+      [this](const ros2_stark_interfaces::msg::MotorStatus::SharedPtr data) {
+        StateCallback(data);
+      }); 
 
     thread_ = std::thread([this]() { ContinuousMove(); });
 
@@ -36,20 +38,29 @@ class HandsController : public rclcpp::Node {
 
 
   private:
-  rclcpp::Publisher<unitree_go::msg::MotorCmds>::SharedPtr l_pub_;
-  rclcpp::Publisher<unitree_go::msg::MotorCmds>::SharedPtr r_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr l_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr r_pub_;
   rclcpp::Subscription<unitree_go::msg::WirelessController>::SharedPtr suber_; 
+  rclcpp::Subscription<ros2_stark_interfaces::msg::TouchStatus>::SharedPtr r_touch_sub_; 
+  rclcpp::Subscription<ros2_stark_interfaces::msg::MotorStatus>::SharedPtr r_state_sub_; 
   std::thread thread_;
 
-  const std::array<float, 6> open_hand {0, 0, 0, 0, 0, 0}; 
-  const std::array<float, 6> fist {1, 1, 1, 1, 1, 1}; 
-  const std::array<float, 6> pre_fist {0, 1, 1, 1, 1, 1}; 
-  const std::array<float, 6> thumb_out {0, 0, 1, 1, 1, 1}; 
-  const std::array<float, 6> point {1, 1, 0, 1, 1, 1}; 
-  const std::array<float, 6> pre_point {0, 1, 0, 1, 1, 1}; 
-  const std::array<float, 6> wings {0, 0, 0.3, 0.3, 0.3, 0.3}; 
-  const std::array<float, 6> peace {1, 1, 0.0, 0.0, 1, 1}; 
-  const std::array<float, 6> pre_peace {0, 1, 0.0, 0.0, 1, 1};
+  const std::vector<double> open_hand {0, 0, 0, 0, 0, 0}; 
+  const std::vector<double> fist {1, 1, 1, 1, 1, 1}; 
+  const std::vector<double> pre_fist {0, 1, 1, 1, 1, 1}; 
+  const std::vector<double> thumb_out {0, 0, 1, 1, 1, 1}; 
+  const std::vector<double> point {1, 1, 0, 1, 1, 1}; 
+  const std::vector<double> pre_point {0, 1, 0, 1, 1, 1}; 
+  const std::vector<double> wings {0, 0, 0.3, 0.3, 0.3, 0.3}; 
+  const std::vector<double> peace {1, 1, 0.0, 0.0, 1, 1}; 
+  const std::vector<double> pre_peace {0, 1, 0.0, 0.0, 1, 1};
+
+  const std::vector<double> max_speed {1, 1, 1, 1, 1, 1};
+  const std::vector<double> grasp_speed {0.2, 0.2, 0.2, 0.2, 0.2, 0.2};
+
+  std::vector<double> saved_state {0, 0, 0, 0, 0, 0};
+  const std::vector<double> pre_grasp {0, 1, 0, 0, 0, 0}; 
+  const std::vector<double> grasp {0.4, 1.0, 0.5, 0.5, 0.5, 0.6};  
 
   enum class HandFlag : int {
     LEFT = 0,
@@ -60,38 +71,54 @@ class HandsController : public rclcpp::Node {
   bool btn_flag = false;
   bool cont_flag = false;
   bool cont_num = 0;
+  bool grasp_once = false;
 
-  void MoveHands(std::array<float, 6> positions, int hand_flag) {
+  void StateCallback(const ros2_stark_interfaces::msg::MotorStatus::SharedPtr& data) {
+    for (int i = 0; i < 6; i ++) {
+      saved_state[i] = data->positions[i];
+    }
+  }
+
+  void TouchCallback(const ros2_stark_interfaces::msg::TouchStatus::SharedPtr& data) {
+    if ((data->data[0].normal_force1 > 60) && (grasp_once)) {
+      RCLCPP_INFO(this->get_logger(), "Index finger force flag triggered");
+      MoveHands(saved_state, static_cast<int>(HandFlag::RIGHT));
+      grasp_once = false;
+    }
+  }
+
+  void StartGrasping(bool left) {
+    grasp_once = true;
+    sensor_msgs::msg::JointState hand_cmd;
+    hand_cmd.position = grasp;
+    hand_cmd.velocity = grasp_speed;
+    if (left) {
+      l_pub_->publish(hand_cmd);
+    } else {
+      r_pub_->publish(hand_cmd);
+    }
+  }
+
+  void MoveHands(const std::vector<double> positions, int hand_flag) {
     if (cont_flag) {
       cont_flag = false;
     }
-    std::vector<unitree_go::msg::MotorCmd> tmpCommands;
-    unitree_go::msg::MotorCmds handCmds;
-
-    for (int i = 0; i < 6; i++) {
-        unitree_go::msg::MotorCmd handCmd;
-        handCmd.q = positions[i];
-        handCmd.dq = 1.0F;
-        handCmd.tau = 0.0F;
-        handCmd.kp = 0.0F;
-        handCmd.kd = 0.0F;
-        handCmd.mode = 0;
-        tmpCommands.push_back(handCmd);
-    }
-    handCmds.cmds = tmpCommands;
+    sensor_msgs::msg::JointState hand_cmd;
+    hand_cmd.position = positions;
+    hand_cmd.velocity = max_speed;
 
     switch (hand_flag) {
       case 0:
-        l_pub_->publish(handCmds);
+        l_pub_->publish(hand_cmd);
         break;
       
       case 1:
-        r_pub_->publish(handCmds);
+        r_pub_->publish(hand_cmd);
         break;
 
       case 2:
-        l_pub_->publish(handCmds);
-        r_pub_->publish(handCmds);
+        l_pub_->publish(hand_cmd);
+        r_pub_->publish(hand_cmd);
         break;
     }
   }
@@ -101,75 +128,39 @@ class HandsController : public rclcpp::Node {
       while (!(cont_flag)) {
         std::this_thread::sleep_for(500ms);
       }
+      sensor_msgs::msg::JointState hand_cmd;
+      hand_cmd.velocity = max_speed;
       if (cont_flag && cont_num == 0) {
-        std::vector<unitree_go::msg::MotorCmd> tmpCommands;
-        unitree_go::msg::MotorCmds handCmds;
-
-        for (int i = 0; i < 6; i++) {
-            unitree_go::msg::MotorCmd handCmd;
-            handCmd.q = wings[i];
-            handCmd.dq = 1.0F;
-            handCmd.tau = 0.0F;
-            handCmd.kp = 0.0F;
-            handCmd.kd = 0.0F;
-            handCmd.mode = 0;
-            tmpCommands.push_back(handCmd);
-        }
-        handCmds.cmds = tmpCommands;
-        l_pub_->publish(handCmds);
-        r_pub_->publish(handCmds);
+        hand_cmd.position = wings;
+        l_pub_->publish(hand_cmd);
+        r_pub_->publish(hand_cmd);
         std::this_thread::sleep_for(400ms);
       }
 
       if (cont_flag && cont_num == 0) {
-        std::vector<unitree_go::msg::MotorCmd> tmpCommands;
-        unitree_go::msg::MotorCmds handCmds;
-
-        for (int i = 0; i < 6; i++) {
-            unitree_go::msg::MotorCmd handCmd;
-            handCmd.q = open_hand[i];
-            handCmd.dq = 1.0F;
-            handCmd.tau = 0.0F;
-            handCmd.kp = 0.0F;
-            handCmd.kd = 0.0F;
-            handCmd.mode = 0;
-            tmpCommands.push_back(handCmd);
-        }
-        handCmds.cmds = tmpCommands;
-        l_pub_->publish(handCmds);
-        r_pub_->publish(handCmds);
+        hand_cmd.position = open_hand;
+        l_pub_->publish(hand_cmd);
+        r_pub_->publish(hand_cmd);
         std::this_thread::sleep_for(400ms);
       }
 
       if (cont_flag && cont_num == 1) {
-        unitree_go::msg::MotorCmds handCmds;
-        std::vector<float> flutter {1, 0, 0, 0}; 
+        hand_cmd.position = open_hand;
+        int finger_tracker = 2;
         while (cont_flag) {
-          std::vector<unitree_go::msg::MotorCmd> tmpCommands;
-          unitree_go::msg::MotorCmd handCmd;
-          handCmd.q = 0;
-          handCmd.dq = 1.0F;
-          handCmd.tau = 0.0F;
-          handCmd.kp = 0.0F;
-          handCmd.kd = 0.0F;
-          handCmd.mode = 0;
-          tmpCommands.push_back(handCmd);
-          tmpCommands.push_back(handCmd);
-          for (int i = 0; i < 4; i++) {
-              unitree_go::msg::MotorCmd handCmd;
-              handCmd.q = flutter[i];
-              handCmd.dq = 1.0F;
-              handCmd.tau = 0.0F;
-              handCmd.kp = 0.0F;
-              handCmd.kd = 0.0F;
-              handCmd.mode = 0;
-              tmpCommands.push_back(handCmd);
+          hand_cmd.position[finger_tracker] = 1;
+          l_pub_->publish(hand_cmd);
+          r_pub_->publish(hand_cmd);
+
+          if (finger_tracker >= 5) {
+            finger_tracker = 2;
+            hand_cmd.position = open_hand;
+
+          } else {
+            hand_cmd.position[finger_tracker] = 0;
+            finger_tracker ++;
           }
-          handCmds.cmds = tmpCommands;
-          l_pub_->publish(handCmds);
-          r_pub_->publish(handCmds);
-          flutter.insert(flutter.begin(), flutter[3]);
-          flutter.pop_back();
+
           std::this_thread::sleep_for(300ms);
         }
       }
@@ -257,6 +248,11 @@ class HandsController : public rclcpp::Node {
       MoveHands(pre_peace, static_cast<int>(HandFlag::BOTH));
       std::this_thread::sleep_for(400ms);
       MoveHands(peace, static_cast<int>(HandFlag::BOTH));
+      btn_flag = false;
+    }else if ((data->keys == 8) && (btn_flag)) { // SELECT
+      MoveHands(pre_grasp, static_cast<int>(HandFlag::RIGHT));
+      std::this_thread::sleep_for(500ms);
+      StartGrasping(false);
       btn_flag = false;
     }else if ((data->keys == 0) && !(btn_flag)) {
       btn_flag = true;

@@ -14,6 +14,7 @@ set (
   geometry_msgs
   rclcpp
   rosbag2_cpp
+  ros2_stark_interfaces
   ruckig
   sensor_msgs
   std_msgs
@@ -32,6 +33,7 @@ find_package(geometry_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclpy REQUIRED)
 find_package(rosbag2_cpp REQUIRED)
+find_package(ros2_stark_interfaces REQUIRED)
 find_package(ruckig REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
