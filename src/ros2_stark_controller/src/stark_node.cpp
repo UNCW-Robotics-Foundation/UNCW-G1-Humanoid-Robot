@@ -178,10 +178,12 @@ private:
             return;
         }
         auto msg = ros2_stark_interfaces::msg::MotorStatus();
-        std::copy(data->positions, data->positions + 6, msg.positions.begin());
-        std::copy(data->speeds,    data->speeds    + 6, msg.speeds.begin());
-        std::copy(data->currents,  data->currents  + 6, msg.currents.begin());
-        std::copy(data->states,    data->states    + 6, msg.states.begin());
+        for (int i = 0; i < 6; i++) {
+            msg.positions[i] = data->positions[i] / 1000.0f;
+            msg.speeds[i] = data->speeds[i] / 1000.0f;
+            msg.currents[i] = data->currents[i] / 1000.0f;
+            msg.states[i] = data->states[i];
+        }
         pub->publish(msg);
         free_motor_status_data(data);
     }
