@@ -5,9 +5,13 @@ SHELL ["/bin/bash", "-c"]
 RUN apt-get update && apt-get install -y \
         vim \
         ccls \
+        wget \
+        unzip \
         ament-cmake \
         python3-pip \
         python3-colcon-common-extensions \
+        libusb-1.0-0 \
+        libusb-1.0-0-dev \
         libyaml-cpp-dev \
         ros-${ROS_DISTRO}-xacro \
         ros-${ROS_DISTRO}-rviz2 \
@@ -27,6 +31,7 @@ RUN git clone https://github.com/Art3mi0/unitree_ros2.git
 RUN cd unitree_ros2/cyclonedds_ws && source /opt/ros/$ROS_DISTRO/setup.bash && colcon build
 
 RUN git clone https://github.com/UNCW-Robotics-Foundation/UNCW-G1-Humanoid-Robot
+RUN cd UNCW-G1-Humanoid-Robot && bash download-lib.sh && cd src/ros2_stark_controller && mkdir lib && cd - && cp dist/shared/linux/libbc_stark_sdk.so src/ros2_stark_controller/lib/
 RUN source unitree_ros2/setup.sh && cd UNCW-G1-Humanoid-Robot && colcon build --packages-select g1_msgs g1_gestures ros2_stark_controller ros2_stark_interfaces
 
 COPY entrypoint.sh /entrypoint.sh
