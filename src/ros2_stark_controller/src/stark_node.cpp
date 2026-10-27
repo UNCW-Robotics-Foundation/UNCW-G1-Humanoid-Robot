@@ -98,51 +98,57 @@ private:
     // ── Init helper ───────────────────────────────────────────────────────────
 
     bool open_and_init_hand(const std::string& port, int baud,
-                             uint8_t slave_id, DeviceHandler*& out_handle,
-                             const char* label) {
-        out_handle = modbus_open(port.c_str(), static_cast<uint32_t>(baud));
-        if (!out_handle) {
-            RCLCPP_ERROR(get_logger(), "[%s] Failed to open %s at %d baud",
-                         label, port.c_str(), baud);
-            return false;
-        }
+                        uint8_t slave_id, DeviceHandler*& out_handle,
+                        const char* label) {
+	    const int kMaxAttempts = 10;
+	    CDeviceInfo* info = nullptr;
 
-        // Set a safe default so get_device_info parses correctly, then update
-        // to the real hardware type the device reports.
-        stark_set_hardware_type(out_handle, slave_id, STARK_HARDWARE_TYPE_REVO2_BASIC);
-        CDeviceInfo* info = stark_get_device_info(out_handle, slave_id);
-        if (info) {
-            stark_set_hardware_type(out_handle, slave_id,
-                static_cast<StarkHardwareType>(info->hardware_type));
-            RCLCPP_INFO(get_logger(), "[%s] SN=%s  FW=%s  HW=%u",
-                        label, info->serial_number, info->firmware_version,
-                        info->hardware_type);
-            free_device_info(info);
-        } else {
-            RCLCPP_WARN(get_logger(),
-                "[%s] Could not read device info — using preset HW type", label);
-        }
+	    for (int attempt = 1; attempt <= kMaxAttempts && !info; ++attempt) {
+		out_handle = modbus_open(port.c_str(), static_cast<uint32_t>(baud));
+		if (out_handle) {
+		    stark_set_hardware_type(out_handle, slave_id, STARK_HARDWARE_TYPE_REVO2_BASIC);
+		    info = stark_get_device_info(out_handle, slave_id);
+		    if (info) break;
+		    // Reopen to flush any stale/desynced bytes.
+		    close_device_handler(out_handle, STARK_PROTOCOL_TYPE_MODBUS);
+		    out_handle = nullptr;
+		}
+		RCLCPP_WARN(get_logger(), "[%s] device info attempt %d/%d failed, retrying",
+		            label, attempt, kMaxAttempts);
+		std::this_thread::sleep_for(std::chrono::milliseconds(500));
+	    }
 
-        // Enable all 5 touch sensors (bits 0-4 = fingers 0-4).
-        // Without this the SDK returns null for every touch read.
-        stark_enable_touch_sensor(out_handle, slave_id, 0x1F);
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+	    if (!info) {
+		RCLCPP_ERROR(get_logger(), "[%s] hand never responded on %s", label, port.c_str());
+		return false;
+	    }
 
-        // Reset + zero-calibrate the touch sensors while the hand is unloaded
-        // (nothing pressing on it yet at this point in startup). Without this,
-        // per-sensor baseline drift can leave idle-state force readings
-        // elevated enough to look like contact at rest. stark-sdk.h documents
-        // stark_calibrate_touch_sensor for exactly this case ("use when 3D
-        // force values are non-zero in idle state").
-        stark_reset_touch_sensor(out_handle, slave_id, 0x1F);
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
-        stark_calibrate_touch_sensor(out_handle, slave_id, 0x1F);
+	    stark_set_hardware_type(out_handle, slave_id,
+		static_cast<StarkHardwareType>(info->hardware_type));
+	    RCLCPP_INFO(get_logger(), "[%s] SN=%s  FW=%s  HW=%u",
+		        label, info->serial_number, info->firmware_version, info->hardware_type);
+	    free_device_info(info);
 
-        RCLCPP_INFO(get_logger(), "[%s] Touch sensors enabled, reset, and calibrated — waiting 1 s…", label);
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+	    stark_enable_touch_sensor(out_handle, slave_id, 0x1F);
+	    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+	    stark_reset_touch_sensor(out_handle, slave_id, 0x1F);
+	    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+	    stark_calibrate_touch_sensor(out_handle, slave_id, 0x1F);
+	    std::this_thread::sleep_for(std::chrono::seconds(1));
 
-        return true;
-    }
+	    // Verify touch actually reads before declaring success.
+	    for (int i = 0; i < 5; ++i) {
+		auto* t = stark_get_touch_status(out_handle, slave_id);
+		if (t) {
+		    free_touch_finger_data(t);
+		    RCLCPP_INFO(get_logger(), "[%s] touch verified", label);
+		    return true;
+		}
+		std::this_thread::sleep_for(std::chrono::milliseconds(200));
+	    }
+	    RCLCPP_WARN(get_logger(), "[%s] touch read never succeeded", label);
+	    return false;
+	}
 
     // ── Timer callbacks ───────────────────────────────────────────────────────
 
