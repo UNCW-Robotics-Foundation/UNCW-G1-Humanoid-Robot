@@ -179,9 +179,9 @@ private:
         }
         auto msg = ros2_stark_interfaces::msg::MotorStatus();
         for (int i = 0; i < 6; i++) {
-            msg.positions[i] = data->positions[i] / 1000.0f;
-            msg.speeds[i] = data->speeds[i] / 1000.0f;
-            msg.currents[i] = data->currents[i] / 1000.0f;
+            msg.positions[i] = static_cast<float>(data->positions[i]) / 1000.0f;
+            msg.speeds[i] = static_cast<float>(data->speeds[i]) / 1000.0f;
+            msg.currents[i] = static_cast<float>(data->currents[i]) / 1000.0f;
             msg.states[i] = data->states[i];
         }
         pub->publish(msg);
