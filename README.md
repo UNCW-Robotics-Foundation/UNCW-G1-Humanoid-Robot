@@ -8,7 +8,7 @@ Linux Ubuntu 22.04
 - Install Ros2 Humble
 - Additional Ros2 dependencies:
 ```
-sudo apt install ros-humble-xacro ros-humble-joint-state-publisher ros-humble-joint-state-publisher-gui
+sudo apt install ros-humble-xacro ros-humble-joint-state-publisher ros-humble-joint-state-publisher-gui ros-humble-ruckig
 ```
 - Install the [unitree_ros2](https://github.com/unitreerobotics/unitree_ros2) repository. You only need to install the cyclonedd_ws package. The examples are not necessary. Simplified instructions:
 ```
