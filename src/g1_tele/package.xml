@@ -21,6 +21,7 @@
   <depend>unitree_api</depend>
   <depend>rclcpp</depend>
   <depend>rclpy</depend>
+  <depend>ros2_stark_interfaces</depend>
   <depend>std_msgs</depend>
   <depend>rosbag2_cpp</depend>
   <depend>sensor_msgs_py</depend>

@@ -2,7 +2,7 @@
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import PointCloud2
-from geometry_msgs.msg import PointStamped
+from geometry_msgs.msg import PointStamped, Point
 import sensor_msgs_py.point_cloud2 as pc2
 import numpy as np
 import cv2
@@ -11,18 +11,29 @@ class HybridSphereDetector(Node):
     def __init__(self):
         super().__init__('hybrid_sphere_detector')
         
+        self.cmd_subscription = self.create_subscription(
+            Point, '/demo/estimate_cmd', self.cmd_callback, 10)
+
         self.subscription = self.create_subscription(
             PointCloud2,
             '/camera/camera/depth/color/points', 
             self.cloud_callback,
             10)
         
-        self.ball_pub = self.create_publisher(PointStamped, '/detected_ball_center', 10)
+        self.ball_pub = self.create_publisher(PointStamped, '/demo/estimate_response', 10)
         self.get_logger().info("Hybrid Node Started.")
 
         # Fixed OpenCV HSV Teal mapping bounds
         self.lower_color = np.array([80, 100, 100])
         self.upper_color = np.array([110, 255, 255])
+
+        self.estimate_flag = False
+
+    def cmd_callback(self, msg: Point):
+        if (msg.x == 1.0):
+            self.estimate_flag = True
+        if (msg.x == 0.0):
+            self.estimate_flag = False
 
     def fit_sphere_ransac(self, pts, max_iters=150, thresh=0.008):
         num_pts = len(pts)
@@ -65,6 +76,8 @@ class HybridSphereDetector(Node):
         return best_center, best_radius
 
     def cloud_callback(self, msg):
+        if (not self.estimate_flag):
+            return
         # 1. Read unstructured point cloud
         flat_arr = pc2.read_points_numpy(msg, field_names=("x", "y", "z", "rgb"), skip_nans=False)
         

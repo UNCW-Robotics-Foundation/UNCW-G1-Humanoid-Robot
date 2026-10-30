@@ -7,9 +7,11 @@ Publishes plan pointcloud data to /joint/plan_dbg. Publishes plan points to /joi
 
 import rclpy
 from rclpy.node import Node
+from rclpy.duration import Duration
 from tf2_ros.transform_listener import TransformListener
 from tf2_ros.buffer import Buffer
 from tf2_ros import TransformException
+import tf2_geometry_msgs
 from geometry_msgs.msg import PointStamped, Point
 from sensor_msgs.msg import PointCloud2, PointField
 from sensor_msgs_py import point_cloud2
@@ -70,6 +72,9 @@ class RuckigPlanNode(Node):
         self.wait_for_open = False
         self.plan_state = 0
 
+        self.estimate_buffer = []
+        self.estimate_cmd = Point()
+
         # ---- ROS interfaces ----
         self.point_sub = self.create_subscription(
             PointStamped, 'clicked_point', self.target_callback, 10)
@@ -79,6 +84,9 @@ class RuckigPlanNode(Node):
 
         self.grasp_sub = self.create_subscription(
             Point, 'demo/hand', self.grasp_callback, 10)
+        
+        self.estimate_response_sub = self.create_subscription(
+            PointStamped, 'demo/estimate_response', self.estimate_callback, 10)
 
         self.point_pub = self.create_publisher(
             JointTrajectoryPoint, 'joint/trajectory_point', 10)
@@ -92,6 +100,8 @@ class RuckigPlanNode(Node):
         self.grasp_pub = self.create_publisher(
             Point, '/demo/plan', 10)
 
+        self.estimate_cmd_pub = self.create_publisher(
+            Point, '/demo/estimate_cmd', 10)
 
         self.timer = self.create_timer(self.dt, self.update_loop)
 
@@ -115,14 +125,14 @@ class RuckigPlanNode(Node):
         self.plan_state += 1
         #self.point_offset = 0.0485
 
-    def plan_helper(self, point: PointStamped, z_offset):
-        self.plan.append([point.point.x, point.point.y, point.point.z + z_offset])
+    def plan_helper(self, point: PointStamped, z_offset, y_offset=0.0):
+        self.plan.append([point.point.x, point.point.y + y_offset, point.point.z + z_offset])
         tmp_point = G1Point()
         tmp_point.x = point.point.x
-        tmp_point.y = point.point.y
-        tmp_point.z = point.point.z + self.point_offset
+        tmp_point.y = point.point.y + y_offset
+        tmp_point.z = point.point.z + z_offset
         self.plan_msg.plan.append(tmp_point)
-        self.get_logger().info(f'New plan point: x={point.point.x:.4f}, y={point.point.y:.4f}, z={point.point.z + z_offset:.4f}')
+        self.get_logger().info(f'New plan point: x={point.point.x:.4f}, y={point.point.y + y_offset:.4f}, z={point.point.z + z_offset:.4f}')
 
     def joy_callback(self, msg: Joy):
         if (msg.buttons[6] == 1) and (not self._has_plan):  # Start (3 lines)
@@ -134,9 +144,51 @@ class RuckigPlanNode(Node):
         if (msg.buttons[4] == 1):                           # Select (2 windows)
             # self.plan_pub.publish(self.plan_msg)
             self.force_next = True;
+        if (msg.buttons[10] == 1):                           # RB
+            self.estimate_buffer.clear()
+            self.plan.clear()
+            self.current_point = 0
+            self._has_plan = False
+            # reset current position?
+
+            self.estimate_cmd.x = 1.0
+            self.estimate_cmd_pub.publish(self.estimate_cmd)
+            self.force_next = True;
 
     def grasp_callback(self, msg: Point):
         self.grasp_res = msg
+
+    def estimate_callback(self, msg: PointStamped):
+        try:
+            transformed_pt = self.tf_buffer.transform(msg, 'pelvis', timeout=Duration(seconds=0.1))
+        except Exception as e:
+            self.get_logger().warn(f'TF failed: {e}')
+            return
+        self.estimate_buffer.append(transformed_pt)
+        buffer_size = len(self.estimate_buffer)
+        if buffer_size >= 5:
+            tmp_x = 0.0
+            tmp_y = 0.0
+            tmp_z = 0.0
+            for i in self.estimate_buffer:
+                tmp_x += i.point.x
+                tmp_y += i.point.y
+                tmp_z += i.point.z
+            tmp_x = tmp_x / buffer_size
+            tmp_y = tmp_y / buffer_size
+            tmp_z = tmp_z / buffer_size
+            tmp_point = PointStamped()
+            tmp_point.point.x = tmp_x
+            tmp_point.point.y = tmp_y
+            tmp_point.point.z = tmp_z
+            self.plan_helper(tmp_point, 0.16)
+            self.plan_helper(tmp_point, 0.1)
+            self.plan_helper(tmp_point, 0.16)
+            self.plan_helper(tmp_point, 0.16, 0.2)
+            self.plan_helper(tmp_point, 0.12, 0.2)
+            self.plan_helper(tmp_point, 0.16, 0.2)
+            self.estimate_cmd.x = 0.0
+            self.estimate_cmd_pub.publish(self.estimate_cmd)
 
     def update_loop(self):
         try:
@@ -155,7 +207,7 @@ class RuckigPlanNode(Node):
             if self._init_frame:
                 self._init_frame = False
                 self.inp.current_position = [t_ee.transform.translation.x, t_ee.transform.translation.y, t_ee.transform.translation.z]
-                self.get_logger().info(f"Wrist Frame Recorded!")
+                self.get_logger().info(f"ee Frame Recorded!")
 
         except TransformException as ex:
             self.get_logger().info(
@@ -227,7 +279,7 @@ class RuckigPlanNode(Node):
                 self.grasp_pub.publish(self.grasp_cmd)
                 self.get_logger().info(f'Sent grasp signal. Waiting for response...')
                 return
-            elif (self.current_point == 3):
+            elif (self.current_point == 4):
                 self.wait_for_open = True
                 self.grasp_cmd.x = 2.0
                 self.grasp_pub.publish(self.grasp_cmd)

@@ -29,6 +29,7 @@ set (
   pcl_conversions
   pcl_ros
   rclcpp
+  ros2_stark_interfaces
   rosbag2_cpp
   ruckig
   sensor_msgs
@@ -52,6 +53,7 @@ find_package(pcl_conversions REQUIRED)
 find_package(pcl_ros REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclpy REQUIRED)
+find_package(ros2_stark_interfaces REQUIRED)
 find_package(rosbag2_cpp REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 find_package(ruckig REQUIRED)
