@@ -57,7 +57,7 @@ class RuckigPlanNode(Node):
 
         self._has_plan = False
         self._init_frame = True
-        self._close_to_point = False
+        self._next_point = False
         self.print_wait_once = True
         self.force_next = False
 
@@ -71,9 +71,11 @@ class RuckigPlanNode(Node):
         self.wait_for_close = False
         self.wait_for_open = False
         self.plan_state = 0
+        self.saved_vel = 0.0
 
         self.estimate_buffer = []
         self.estimate_cmd = Point()
+        self.initial_point = []
 
         # ---- ROS interfaces ----
         self.point_sub = self.create_subscription(
@@ -153,7 +155,18 @@ class RuckigPlanNode(Node):
 
             self.estimate_cmd.x = 1.0
             self.estimate_cmd_pub.publish(self.estimate_cmd)
-            self.force_next = True;
+            self.force_next = False;
+        if (msg.buttons[2] == 1):                           # X
+            self.plan.clear()
+            self.current_point = 0
+            self.inp.target_position = [self.initial_point[0], self.initial_point[1], self.initial_point[2]]
+            self.plan.append(self.initial_point)
+            self._has_plan = True
+            self.force_next = False;
+        if (msg.buttons[3] == 1):                           # Y
+            # self.plan_pub.publish(self.plan_msg)
+            # self.force_next = True;
+            return
 
     def grasp_callback(self, msg: Point):
         self.grasp_res = msg
@@ -181,12 +194,12 @@ class RuckigPlanNode(Node):
             tmp_point.point.x = tmp_x
             tmp_point.point.y = tmp_y
             tmp_point.point.z = tmp_z
-            self.plan_helper(tmp_point, 0.16)
-            self.plan_helper(tmp_point, 0.1)
-            self.plan_helper(tmp_point, 0.16)
-            self.plan_helper(tmp_point, 0.16, 0.2)
-            self.plan_helper(tmp_point, 0.12, 0.2)
-            self.plan_helper(tmp_point, 0.16, 0.2)
+            self.plan_helper(tmp_point, 0.18)
+            self.plan_helper(tmp_point, 0.12)
+            self.plan_helper(tmp_point, 0.18)
+            self.plan_helper(tmp_point, 0.18, 0.2)
+            self.plan_helper(tmp_point, 0.14, 0.2)
+            self.plan_helper(tmp_point, 0.18, 0.2)
             self.estimate_cmd.x = 0.0
             self.estimate_cmd_pub.publish(self.estimate_cmd)
 
@@ -207,6 +220,7 @@ class RuckigPlanNode(Node):
             if self._init_frame:
                 self._init_frame = False
                 self.inp.current_position = [t_ee.transform.translation.x, t_ee.transform.translation.y, t_ee.transform.translation.z]
+                self.initial_point = [t_ee.transform.translation.x, t_ee.transform.translation.y, t_ee.transform.translation.z]
                 self.get_logger().info(f"ee Frame Recorded!")
 
         except TransformException as ex:
@@ -247,7 +261,8 @@ class RuckigPlanNode(Node):
             else:
                 return
 
-        self.check_point(t_ee)
+        # self.check_point(t_ee)
+        self.check_vel(t_ee)
 
         # Ruckig update
         result = self.otg.update(self.inp, self.out)
@@ -265,14 +280,14 @@ class RuckigPlanNode(Node):
 
         # Logic for handling plan with Ruckig and logging real to target error. After the plan finishes,
         # the plan can be restarted with the correct controller input.
-        if result == Result.Finished and self.current_point >= len(self.plan) - 1 and (self._close_to_point or self.force_next):
+        if result == Result.Finished and self.current_point >= len(self.plan) - 1 and (self._next_point or self.force_next):
             self._has_plan = False
             self.get_logger().info(f'Point {self.current_point} completed.')
             self.log_target_errors(t_ee, t_w)
             self.get_logger().info('Plan finished.')
             self.current_point = 0
             self.force_next = False
-        elif result == Result.Finished and self.current_point < len(self.plan) - 1 and (self._close_to_point or self.force_next):
+        elif result == Result.Finished and self.current_point < len(self.plan) - 1 and (self._next_point or self.force_next):
             if (self.current_point == 1):
                 self.wait_for_close = True
                 self.grasp_cmd.x = 1.0
@@ -294,7 +309,7 @@ class RuckigPlanNode(Node):
             self.inp.target_acceleration = [0.0, 0.0, 0.0]
             self.print_wait_once = True
             self.force_next = False
-        elif result == Result.Finished and not self._close_to_point:
+        elif result == Result.Finished and not self._next_point:
             # Node would skip points since the main node is de-coupled. This ensures this node will
             # not move onto the next one until the robot gets close enough.
             if self.print_wait_once:
@@ -338,9 +353,20 @@ class RuckigPlanNode(Node):
         tmp_dz = abs(self.plan[self.current_point][2] - t_ee.transform.translation.z)
 
         if (tmp_dx < 0.004) and (tmp_dy < 0.004) and (tmp_dz < 0.005):
-            self._close_to_point = True
+            self._next_point = True
         else:
-            self._close_to_point = False
+            self._next_point = False
+
+    def check_vel(self, t_ee):
+        tmp_vel = abs(t_ee.transform.translation.x + t_ee.transform.translation.y + t_ee.transform.translation.z)
+
+        if (abs(tmp_vel - self.saved_vel) < 0.0001):
+            self._next_point = True
+        else:
+            self._next_point = False
+        
+        print("xyz diff -", abs(tmp_vel - self.saved_vel), "; next_point status - ", self._next_point)
+        self.saved_vel = tmp_vel
 
 
 def main(args=None):

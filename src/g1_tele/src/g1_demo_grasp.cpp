@@ -89,7 +89,7 @@ class HandsController : public rclcpp::Node {
   }
 
   void TouchCallback(const ros2_stark_interfaces::msg::TouchStatus::SharedPtr& data) {
-    if ((data->data[0].normal_force1 > 60) && (grasp_once)) {
+    if ((data->data[0].normal_force1 > 80) && (grasp_once)) {
       RCLCPP_INFO(this->get_logger(), "Index finger force flag triggered");
       MoveHands(saved_state, static_cast<int>(HandFlag::RIGHT));
       hand_signal.x = 1.0;

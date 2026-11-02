@@ -11,6 +11,7 @@
 #include <g1_msgs/msg/g1_arm_debug.hpp>
 #include <g1_msgs/msg/g1_debug.hpp>
 #include <g1_msgs/msg/debug_data.hpp>
+#include <g1_msgs/msg/ruckig_data.hpp>
 #include "geometry_msgs/msg/transform_stamped.hpp"
 #include "sensor_msgs/msg/joy.hpp"
 #include "sensor_msgs/msg/joint_state.hpp"
@@ -124,10 +125,8 @@ static constexpr double max_j = 1.25;    //        1.0          2.0
     }
     arm_joints_pub_ = this->create_publisher<g1_msgs::msg::ArmStates>("/arm_joints", 10);
     ruckig_joints_pub_ = this->create_publisher<g1_msgs::msg::ArmStates>("/joints/ruckig", 10);
-    dbg_pub_ = this->create_publisher<g1_msgs::msg::G1Debug>("/main_dbg/lil", 10);
-    dbg_pub2_ = this->create_publisher<g1_msgs::msg::DebugData>("/main_dbg/big", 10);
-    dbg_pub3_ = this->create_publisher<g1_msgs::msg::G1ArmDebug>("/main_dbg/arm", 10);
     //ruckig_state_pub_ = this->create_publisher<std_msgs::msg::Bool>("/ruckig_state", 10);
+    ruckig_data_pub_ = this->create_publisher<g1_msgs::msg::RuckigData>("/ruckig_future", 10);
     lowstate_sub_ = this->create_subscription<LowState>(
         "/lowstate", 10,
         [this](const LowState::SharedPtr msg) { StateCallback(msg); });
@@ -151,10 +150,8 @@ static constexpr double max_j = 1.25;    //        1.0          2.0
   rclcpp::Publisher<unitree_hg::msg::LowCmd>::SharedPtr cmd_pub_;
   rclcpp::Publisher<g1_msgs::msg::ArmStates>::SharedPtr arm_joints_pub_;
   rclcpp::Publisher<g1_msgs::msg::ArmStates>::SharedPtr ruckig_joints_pub_;
-  rclcpp::Publisher<g1_msgs::msg::G1Debug>::SharedPtr dbg_pub_;
-  rclcpp::Publisher<g1_msgs::msg::DebugData>::SharedPtr dbg_pub2_;
-  rclcpp::Publisher<g1_msgs::msg::G1ArmDebug>::SharedPtr dbg_pub3_;
   //rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr ruckig_state_pub_;
+  rclcpp::Publisher<g1_msgs::msg::RuckigData>::SharedPtr ruckig_data_pub_;
   rclcpp::Subscription<LowState>::SharedPtr lowstate_sub_;
   rclcpp::Subscription<g1_msgs::msg::ArmStates>::SharedPtr ik_sub_;
   rclcpp::Subscription<g1_msgs::msg::ArmStates>::SharedPtr tau_sub_;
@@ -394,8 +391,18 @@ static constexpr double max_j = 1.25;    //        1.0          2.0
     }
 
     output_.pass_to_input(input_);
-
     PublishCommand(1.0);
+
+    std::array<double, 7> future_pos;
+    std::array<double, 7> future_vel;
+    std::array<double, 7> future_accel;
+    g1_msgs::msg::RuckigData ruckig_msg;
+
+    output_.trajectory.at_time((output_.time + 0.004), future_pos, future_vel, future_accel);
+    ruckig_msg.position.assign(future_pos.begin(), future_pos.end());
+    ruckig_msg.velocity.assign(future_vel.begin(), future_vel.end());
+    ruckig_msg.acceleration.assign(future_accel.begin(), future_accel.end());
+    ruckig_data_pub_->publish(ruckig_msg);
     // ruckig_state_pub_->publish(ruckig_status);
 
   }
