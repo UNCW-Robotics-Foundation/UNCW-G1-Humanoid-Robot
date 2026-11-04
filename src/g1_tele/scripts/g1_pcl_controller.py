@@ -1,0 +1,265 @@
+#!/usr/bin/env python3
+import rclpy
+from rclpy.node import Node
+from sensor_msgs.msg import PointCloud2, Image, CameraInfo, Joy
+from geometry_msgs.msg import PointStamped, Point
+import sensor_msgs_py.point_cloud2 as pc2
+import numpy as np
+import cv2
+from cv_bridge import CvBridge
+import mediapipe as mp
+
+class G1PclController(Node):
+    def __init__(self):
+        super().__init__('g1_pcl_controller')
+        self.bridge = CvBridge()
+
+        # Initialize MediaPipe Hands
+        self.mp_hands = mp.solutions.hands
+        self.hands = self.mp_hands.Hands(
+            static_image_mode=False,
+            max_num_hands=1,
+            min_detection_confidence=0.7,
+            min_tracking_confidence=0.7
+        )
+
+        self.create_subscription(CameraInfo, '/camera/camera/color/camera_info', self.info_callback, 10)
+        self.create_subscription(Image, '/camera/camera/aligned_depth_to_color/image_raw', self.depth_callback, 10)
+        self.create_subscription(Image, '/camera/camera/color/image_raw', self.color_callback, 10)
+        
+        self.cmd_subscription = self.create_subscription(
+            Point, '/demo/estimate_cmd', self.cmd_callback, 10)
+
+        self.subscription = self.create_subscription(
+            PointCloud2,
+            '/camera/camera/depth/color/points', 
+            self.cloud_callback,
+            10)
+
+        # self.joy_sub = self.create_subscription(
+        #     Joy, 'joy', self.joy_callback, 10)
+        
+        self.ball_pub = self.create_publisher(PointStamped, '/demo/estimate_response', 10)
+        self.palm_pub = self.create_publisher(PointStamped, '/demo/palm_center', 10)
+        self.get_logger().info("G1 PCL Node Started.")
+
+        # Fixed OpenCV HSV Teal mapping bounds
+        self.lower_color = np.array([80, 100, 100])
+        self.upper_color = np.array([110, 255, 255])
+
+        # Camera Intrinsic placeholders
+        self.fx = None
+        self.fy = None
+        self.cx = None
+        self.cy = None
+        self.latest_depth_img = None
+
+        self.ball_flag = False
+        self.palm_flag = False
+
+    # def joy_callback(self, msg: Joy):
+    #     if msg.buttons[0] == 1:
+    #         self.palm_flag = False
+    #         self.ball_flag = True
+    #     if msg.buttons[1] == 1:
+    #         self.ball_flag = False
+    #         self.palm_flag = True
+    #     if msg.buttons[2] == 1:
+    #         self.palm_flag = False
+    #         self.ball_flag = False
+
+    def cmd_callback(self, msg: Point):
+        if (msg.x == 1.0):
+            self.ball_flag = True
+        if (msg.x == 0.0):
+            self.ball_flag = False
+
+    def info_callback(self, msg):
+        # Extract intrinsic parameters from CameraInfo (K matrix)
+        self.fx = msg.k[0]
+        self.fy = msg.k[4]
+        self.cx = msg.k[2]
+        self.cy = msg.k[5]
+
+    def depth_callback(self, msg):
+        # Cache the latest depth image (usually 16-bit unsigned integer in mm)
+        self.latest_depth_img = self.bridge.imgmsg_to_cv2(msg, desired_encoding='passthrough')
+
+    def fit_sphere_ransac(self, pts, max_iters=150, thresh=0.008):
+        num_pts = len(pts)
+        if num_pts < 15:
+            return None, None
+
+        best_center = None
+        best_radius = None
+        max_inliers = -1
+
+        for _ in range(max_iters):
+            idx = np.random.choice(num_pts, 15, replace=False)
+            sample = pts[idx]
+
+            A = np.zeros((15, 4))
+            A[:, 0] = sample[:, 0] * 2
+            A[:, 1] = sample[:, 1] * 2
+            A[:, 2] = sample[:, 2] * 2
+            A[:, 3] = 1.0
+            
+            B = np.sum(sample**2, axis=1)
+
+            try:
+                sol, _, _, _ = np.linalg.lstsq(A, B, rcond=None)
+                center = sol[0:3]
+                r_squared = np.sum(center**2) + sol[3]
+                if r_squared <= 0: continue
+                radius = np.sqrt(r_squared)
+            except (np.linalg.LinAlgError, ValueError):
+                continue
+
+            distances = np.abs(np.linalg.norm(pts - center, axis=1) - radius)
+            inliers_count = np.sum(distances < thresh)
+
+            if inliers_count > max_inliers:
+                max_inliers = inliers_count
+                best_center = center
+                best_radius = radius
+
+        return best_center, best_radius
+
+    def cloud_callback(self, msg):
+        if (not self.ball_flag):
+            return
+        # 1. Read unstructured point cloud
+        flat_arr = pc2.read_points_numpy(msg, field_names=("x", "y", "z", "rgb"), skip_nans=False)
+        
+        try:
+            cloud_3d = flat_arr.reshape((msg.height, msg.width, 4))
+        except ValueError:
+            return
+        
+        x_coords = cloud_3d[:, :, 0]
+        y_coords = cloud_3d[:, :, 1]
+        z_coords = cloud_3d[:, :, 2]
+        rgb_raw  = cloud_3d[:, :, 3]
+
+        # 2. Extract color layout
+        rgb_packed = rgb_raw.view(np.uint32)
+        r = ((rgb_packed >> 16) & 0xFF).astype(np.uint8)
+        g = ((rgb_packed >> 8) & 0xFF).astype(np.uint8)
+        b = (rgb_packed & 0xFF).astype(np.uint8)
+        
+        hsv_img = cv2.cvtColor(cv2.merge([r, g, b]), cv2.COLOR_RGB2HSV)
+        mask = cv2.inRange(hsv_img, self.lower_color, self.upper_color)
+        
+        # FIX: Shave off 2 pixels from the border to eliminate background table noise bleeding
+        kernel = np.ones((3, 3), np.uint8)
+        mask = cv2.erode(mask, kernel, iterations=1)
+        
+        v_indices, u_indices = np.where(mask > 0)
+        self.get_logger().info(f"Matching pixels (eroded): {len(v_indices)}", throttle_duration_sec=2.0)
+        
+        if len(v_indices) < 30: return
+
+        # 3. Gather coordinates
+        pts_x = x_coords[v_indices, u_indices]
+        pts_y = y_coords[v_indices, u_indices]
+        pts_z = z_coords[v_indices, u_indices]
+        
+        pts_3d = np.stack((pts_x, pts_y, pts_z), axis=-1)
+        pts_3d = pts_3d[~np.isnan(pts_3d).any(axis=1)]
+        
+        if len(pts_3d) < 30: return
+
+        # 4. Compute original RANSAC math
+        center, radius = self.fit_sphere_ransac(pts_3d)
+        
+        if center is not None:
+            if 0.025 <= radius <= 0.045:
+                cx, cy, cz = map(float, center)
+                point_msg = PointStamped(header=msg.header)
+                point_msg.point.x = cx
+                point_msg.point.y = cy
+                point_msg.point.z = cz
+                
+                self.ball_pub.publish(point_msg)
+                self.get_logger().info(f"🎯 Center: {cx:.3f}, {cy:.3f}, {cz:.3f} | R: {radius*100:.1f}cm")
+            else:
+                # UPDATED: See exactly what size your data is resolving to
+                self.get_logger().warn(
+                    f"⚠️ Shape rejected by bounds filter. Radius calculated: {radius*100:.1f}cm", 
+                    throttle_duration_sec=2.0
+                )
+
+    def color_callback(self, msg):
+        if not self.palm_flag:
+            return
+        if self.latest_depth_img is None or self.fx is None:
+            return
+
+        # Convert ROS image to OpenCV BGR, then to RGB for MediaPipe
+        cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+        rgb_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
+        h, w, _ = cv_image.shape
+
+        results = self.hands.process(rgb_image)
+
+        if results.multi_hand_landmarks:
+            for hand_landmarks in results.multi_hand_landmarks:
+                # 1. Select the palm perimeter landmarks
+                # Landmark 0: Wrist, 5: Index MCP, 9: Middle MCP, 17: Pinky MCP
+                palm_indices = [0, 5, 9, 17]
+                
+                u_list = []
+                v_list = []
+                for idx in palm_indices:
+                    lm = hand_landmarks.landmark[idx]
+                    u_list.append(int(lm.x * w))
+                    v_list.append(int(lm.y * h))
+
+                # 2. Compute pixel center of the palm
+                u_center = int(np.mean(u_list))
+                v_center = int(np.mean(v_list))
+
+                # Prevent out-of-bounds array access
+                if 0 <= u_center < w and 0 <= v_center < h:
+                    # Get depth value (typically in millimeters for RealSense)
+                    depth_z_mm = self.latest_depth_img[v_center, u_center]
+                    
+                    if depth_z_mm == 0:
+                        # Fallback: if center pixel is invalid/blank, check immediate neighbors
+                        roi = self.latest_depth_img[max(0, v_center-2):min(h, v_center+3), 
+                                                    max(0, u_center-2):min(w, u_center+3)]
+                        valid_depths = roi[roi > 0]
+                        if len(valid_depths) > 0:
+                            depth_z_mm = np.median(valid_depths)
+                        else:
+                            continue # Ignore frame if sensor depth is missing completely here
+
+                    # Convert depth to meters
+                    z_m = float(depth_z_mm) / 1000.0
+
+                    # 3. Complete Pin-hole De-projection to get 3D X and Y coordinates
+                    x_m = (u_center - self.cx) * z_m / self.fx
+                    y_m = (v_center - self.cy) * z_m / self.fy
+
+                    # 4. Publish PointStamped
+                    point_msg = PointStamped()
+                    point_msg.header = msg.header  # Keeps timestamp and 'camera_color_optical_frame'
+                    point_msg.point.x = x_m
+                    point_msg.point.y = y_m
+                    point_msg.point.z = z_m
+                    
+                    self.palm_pub.publish(point_msg)
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = G1PclController()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()

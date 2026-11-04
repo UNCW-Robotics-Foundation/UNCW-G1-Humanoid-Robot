@@ -162,7 +162,9 @@ class RuckigPlanNode(Node):
             self.inp.target_position = [self.initial_point[0], self.initial_point[1], self.initial_point[2]]
             self.plan.append(self.initial_point)
             self._has_plan = True
-            self.force_next = False;
+            self.force_next = False
+            self.wait_for_open = False
+            self.wait_for_close = False
         if (msg.buttons[3] == 1):                           # Y
             # self.plan_pub.publish(self.plan_msg)
             # self.force_next = True;
