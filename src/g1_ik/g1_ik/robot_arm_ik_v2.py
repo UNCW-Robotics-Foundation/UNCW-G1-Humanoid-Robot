@@ -260,6 +260,10 @@ class G1_29_ArmIK:
         sol_tauff = pin.rnea(self.reduced_robot.model, self.reduced_robot.data, current_lr_arm_motor_q, current_lr_arm_motor_q * 0.0, np.zeros(self.reduced_robot.model.nv))
         return sol_tauff
 
+    def get_tau_full(self, current_lr_arm_motor_q = None, current_lr_arm_motor_dq = None, current_lr_arm_motor_ddq = None):
+        sol_tauff = pin.rnea(self.reduced_robot.model, self.reduced_robot.data, current_lr_arm_motor_q, current_lr_arm_motor_dq, current_lr_arm_motor_ddq)
+        return sol_tauff
+
     def solve_ik(self, left_wrist, right_wrist, current_lr_arm_motor_q = None, current_lr_arm_motor_dq = None):
         if current_lr_arm_motor_q is not None:
             self.init_data = current_lr_arm_motor_q
